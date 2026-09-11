@@ -1,0 +1,62 @@
+# --- Секреты и окружение -------------------------------------------------
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.keystore
+*.jks
+
+# --- Python ----------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+
+# --- Android / Gradle --------------------------------------------------------
+.gradle/
+local.properties
+captures/
+.cxx/
+*.apk
+*.aab
+*.ap_
+*.iml
+
+# --- Node (архивный React-черновик) -----------------------------------------
+node_modules/
+
+# --- Базы данных и логи -----------------------------------------------------
+*.db
+*.sqlite
+*.sqlite3
+*.log
+
+# --- IDE и ОС --------------------------------------------------------------
+.idea/
+.vscode/
+.cursor/
+.claude/settings.local.json
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# --- Служебные инструменты и черновики (не код проекта) ---------------------
+_bmad/
+_bmad-output/
+tmp/
+img/
+# Ранний каркас React + backend, хранится под тегом archive/react-draft (решение D-01)
+frontend/
+backend/
