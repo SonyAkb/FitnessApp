@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.core.database import Base, engine
+from app.events import register_event_handlers
 
 
 
@@ -14,6 +15,7 @@ async def lifespan(_app: FastAPI):
     # MVP: tables are created from SQLAlchemy models.
     # Alembic is not used yet; switch to migrations when the schema stabilizes.
     Base.metadata.create_all(bind=engine)
+    register_event_handlers()
     yield
 
 
