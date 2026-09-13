@@ -7,6 +7,8 @@ from app.core.config import settings
 from app.core.database import Base, engine
 from app.events import register_event_handlers
 
+from app.modules.auth import models as auth_models  # noqa: F401
+from app.modules.workouts import models as workout_models  # noqa: F401
 
 
 
