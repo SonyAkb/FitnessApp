@@ -10,6 +10,7 @@ from app.events import register_event_handlers
 from app.modules.auth import models as auth_models  # noqa: F401
 from app.modules.workouts import models as workout_models  # noqa: F401
 
+from app.modules.auth.router import router as auth_router
 
 
 @asynccontextmanager
@@ -43,3 +44,4 @@ def health_check():
     return {"status": "ok", "app": settings.APP_NAME, "env": settings.ENV}
 
 
+app.include_router(auth_router, prefix="/api/v1")
