@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+*.egg
+pip-wheel-metadata/
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+
+# Cache
+.cache/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Docker
+.dockerignore
+
+# Tests
+.pytest_cache/
+htmlcov/
+.tox/
+.nox/
+
+# AI/ML
+models/
+*.h5
+*.keras
+*.pkl
+*.joblib
