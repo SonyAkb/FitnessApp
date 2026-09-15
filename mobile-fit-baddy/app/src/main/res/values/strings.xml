@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">FitQuest</string>
+    <string name="nav_home">Den</string>
+    <string name="nav_workout">Quest</string>
+    <string name="nav_progress">Trail</string>
+    <string name="nav_alerts">Calls</string>
+    <string name="nav_profile">Pack</string>
+</resources>
