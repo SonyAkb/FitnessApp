@@ -11,6 +11,7 @@ from app.modules.auth import models as auth_models  # noqa: F401
 from app.modules.workouts import models as workout_models  # noqa: F401
 from app.modules.pet import models as pet_models  # noqa: F401
 from app.modules.notifications import models as notification_models  # noqa: F401
+from app.modules.devices import models as device_models  # noqa: F401
 
 from app.modules.auth.router import router as auth_router
 from app.modules.workouts.router import router as workouts_router
