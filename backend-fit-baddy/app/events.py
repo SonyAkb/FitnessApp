@@ -32,7 +32,9 @@ def register_event_handlers() -> None:
     if _handlers_registered:
         return
 
+    from app.modules.notifications.handlers import register as register_notifications
     from app.modules.pet.handlers import register as register_pet
 
     register_pet(event_bus)
+    register_notifications(event_bus)
     _handlers_registered = True

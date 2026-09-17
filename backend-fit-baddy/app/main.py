@@ -16,6 +16,7 @@ from app.modules.devices import models as device_models  # noqa: F401
 from app.modules.auth.router import router as auth_router
 from app.modules.workouts.router import router as workouts_router
 from app.modules.pet.router import router as pet_router
+from app.modules.notifications.router import router as notifications_router
 
 
 @asynccontextmanager
@@ -52,3 +53,4 @@ def health_check():
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(workouts_router, prefix="/api/v1")
 app.include_router(pet_router, prefix="/api/v1")
+app.include_router(notifications_router, prefix="/api/v1")
