@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="forest">#1F6F4A</color>
+    <color name="forest_dark">#143322</color>
+    <color name="moss">#D7EEDD</color>
+    <color name="cream">#FFF6E8</color>
+    <color name="fox_orange">#F07A2A</color>
+    <color name="ember">#E85D04</color>
+    <color name="bark">#3D2B1F</color>
+    <color name="leaf_ink">#102418</color>
+    <color name="card">#F4FFF6</color>
+    <color name="error">#B42318</color>
+    <color name="white">#FFFFFF</color>
+    <color name="muted">#5C6B61</color>
+    <color name="nav_bar">#FFF1DC</color>
+    <color name="selected_green">#1F6F4A</color>
+    <color name="ic_launcher_bg">#F07A2A</color>
+</resources>
