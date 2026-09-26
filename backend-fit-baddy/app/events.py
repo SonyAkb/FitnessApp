@@ -34,7 +34,9 @@ def register_event_handlers() -> None:
 
     from app.modules.notifications.handlers import register as register_notifications
     from app.modules.pet.handlers import register as register_pet
+    from app.modules.subscription.handlers import register as register_subscription
 
     register_pet(event_bus)
     register_notifications(event_bus)
+    register_subscription(event_bus)
     _handlers_registered = True

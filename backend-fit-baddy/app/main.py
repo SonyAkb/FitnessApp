@@ -12,6 +12,7 @@ from app.modules.workouts import models as workout_models  # noqa: F401
 from app.modules.pet import models as pet_models  # noqa: F401
 from app.modules.notifications import models as notification_models  # noqa: F401
 from app.modules.devices import models as device_models  # noqa: F401
+from app.modules.subscription import models as subscription_models  # noqa: F401
 
 from app.modules.auth.router import router as auth_router
 from app.modules.workouts.router import router as workouts_router
@@ -19,6 +20,7 @@ from app.modules.pet.router import router as pet_router
 from app.modules.dashboard.router import router as dashboard_router
 from app.modules.notifications.router import router as notifications_router
 from app.modules.devices.router import router as devices_router
+from app.modules.subscription.router import router as subscription_router
 
 
 @asynccontextmanager
@@ -58,3 +60,4 @@ app.include_router(pet_router, prefix="/api/v1")
 app.include_router(dashboard_router, prefix="/api/v1")
 app.include_router(notifications_router, prefix="/api/v1")
 app.include_router(devices_router, prefix="/api/v1")
+app.include_router(subscription_router, prefix="/api/v1")
