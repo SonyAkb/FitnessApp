@@ -30,6 +30,14 @@ def _remote_io_error() -> OSError:
     return OSError(121, "Remote I/O error")
 
 
+# Предел блочного чтения настоящего smbus2 (I2C_SMBUS_BLOCK_MAX): длиннее —
+# ValueError("Desired block length over 32 bytes"). Эмуляция обязана давать
+# ту же ошибку, что и железо (docs/pi.md §3 правило 5), иначе драйвер, который
+# в mock читает больше, упадёт только на плате.
+# https://github.com/kplindegaard/smbus2 (smbus2.SMBus.read_i2c_block_data)
+_SMBUS_BLOCK_MAX = 32
+
+
 class FakeSMBus:
     """Эмуляция `smbus2.SMBus`: тот же набор методов, реестр устройств по адресу."""
 
@@ -55,4 +63,6 @@ class FakeSMBus:
         return self._get_device(addr).read_byte_data(reg)
 
     def read_i2c_block_data(self, addr: int, reg: int, length: int) -> list[int]:
+        if length > _SMBUS_BLOCK_MAX:
+            raise ValueError(f"Desired block length over {_SMBUS_BLOCK_MAX} bytes")
         return self._get_device(addr).read_i2c_block_data(reg, length)

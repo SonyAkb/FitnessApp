@@ -86,3 +86,13 @@ def test_unknown_address_block_read_raises_remote_io_error():
         bus.read_i2c_block_data(0x68, 0x00, 6)
 
     assert exc_info.value.errno == 121
+
+
+def test_block_read_over_32_bytes_raises_like_smbus2():
+    bus = FakeSMBus()
+    bus.register_device(0x68, _StubDevice())
+
+    assert len(bus.read_i2c_block_data(0x68, 0x00, 32)) == 32
+
+    with pytest.raises(ValueError):
+        bus.read_i2c_block_data(0x68, 0x00, 33)
