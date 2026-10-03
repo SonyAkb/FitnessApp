@@ -51,6 +51,7 @@ class Config:
     sample_rate_hz: float
     step_threshold_g: float
     step_min_interval_ms: int
+    step_smoothing_samples: int
     hr_band_hz_low: float
     hr_band_hz_high: float
     hr_window_s: float
@@ -85,6 +86,7 @@ def load_config() -> Config:
         sample_rate_hz=_env_float("SAMPLE_RATE_HZ", 50.0),
         step_threshold_g=_env_float("STEP_THRESHOLD_G", 0.15),
         step_min_interval_ms=_env_int("STEP_MIN_INTERVAL_MS", 300),
+        step_smoothing_samples=_env_int("STEP_SMOOTHING_SAMPLES", 3),
         hr_band_hz_low=_env_float("HR_BAND_HZ_LOW", 0.5),
         hr_band_hz_high=_env_float("HR_BAND_HZ_HIGH", 4.0),
         hr_window_s=_env_float("HR_WINDOW_S", 5.0),

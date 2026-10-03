@@ -14,6 +14,7 @@ _ALL_VARS = [
     "SAMPLE_RATE_HZ",
     "STEP_THRESHOLD_G",
     "STEP_MIN_INTERVAL_MS",
+    "STEP_SMOOTHING_SAMPLES",
     "HR_BAND_HZ_LOW",
     "HR_BAND_HZ_HIGH",
     "HR_WINDOW_S",
@@ -48,6 +49,7 @@ def test_defaults_when_env_not_set(monkeypatch):
     assert config.sample_rate_hz == 50.0
     assert config.step_threshold_g == 0.15
     assert config.step_min_interval_ms == 300
+    assert config.step_smoothing_samples == 3
     assert config.hr_band_hz_low == 0.5
     assert config.hr_band_hz_high == 4.0
     assert config.hr_window_s == 5.0
@@ -78,6 +80,7 @@ def test_env_overrides_are_applied(monkeypatch):
     monkeypatch.setenv("MPU6050_ADDR", "0x69")
     monkeypatch.setenv("PUBLISH_ENABLED", "true")
     monkeypatch.setenv("SAMPLE_RATE_HZ", "100")
+    monkeypatch.setenv("STEP_SMOOTHING_SAMPLES", "5")
 
     config = load_config()
 
@@ -86,6 +89,7 @@ def test_env_overrides_are_applied(monkeypatch):
     assert config.mpu6050_addr == 0x69
     assert config.publish_enabled is True
     assert config.sample_rate_hz == 100.0
+    assert config.step_smoothing_samples == 5
 
 
 def test_device_token_has_no_default_value(monkeypatch):
