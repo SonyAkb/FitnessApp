@@ -55,6 +55,7 @@ class Config:
     hr_band_hz_low: float
     hr_band_hz_high: float
     hr_window_s: float
+    hr_min_signal_ratio: float
     history_max_points: int
     battery_percent: int
     scenario: str
@@ -70,7 +71,7 @@ def load_config() -> Config:
     """Собирает `Config` из переменных окружения (см. README → "Конфигурация").
 
     SAMPLE_RATE_HZ, STEP_THRESHOLD_G, STEP_MIN_INTERVAL_MS, HR_BAND_HZ_LOW,
-    HR_BAND_HZ_HIGH и HR_WINDOW_S не подтверждены даташитом или калибровкой —
+    HR_BAND_HZ_HIGH, HR_WINDOW_S и HR_MIN_SIGNAL_RATIO не подтверждены даташитом или калибровкой —
     это стартовые значения для синтетики, подбираются на реальном железе
     в PI-10 (docs/pi.md §3.8: "параметры алгоритмов... будут подбираться
     на реальном железе").
@@ -90,6 +91,7 @@ def load_config() -> Config:
         hr_band_hz_low=_env_float("HR_BAND_HZ_LOW", 0.5),
         hr_band_hz_high=_env_float("HR_BAND_HZ_HIGH", 4.0),
         hr_window_s=_env_float("HR_WINDOW_S", 5.0),
+        hr_min_signal_ratio=_env_float("HR_MIN_SIGNAL_RATIO", 0.01),
         history_max_points=_env_int("HISTORY_MAX_POINTS", 3600),
         battery_percent=_env_int("BATTERY_PERCENT", 82),
         scenario=_env_str("SCENARIO", "walk"),

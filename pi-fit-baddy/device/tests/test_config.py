@@ -18,6 +18,7 @@ _ALL_VARS = [
     "HR_BAND_HZ_LOW",
     "HR_BAND_HZ_HIGH",
     "HR_WINDOW_S",
+    "HR_MIN_SIGNAL_RATIO",
     "HISTORY_MAX_POINTS",
     "BATTERY_PERCENT",
     "SCENARIO",
@@ -53,6 +54,7 @@ def test_defaults_when_env_not_set(monkeypatch):
     assert config.hr_band_hz_low == 0.5
     assert config.hr_band_hz_high == 4.0
     assert config.hr_window_s == 5.0
+    assert config.hr_min_signal_ratio == 0.01
     assert config.history_max_points == 3600
     assert config.battery_percent == 82
     assert config.scenario == "walk"
@@ -81,6 +83,7 @@ def test_env_overrides_are_applied(monkeypatch):
     monkeypatch.setenv("PUBLISH_ENABLED", "true")
     monkeypatch.setenv("SAMPLE_RATE_HZ", "100")
     monkeypatch.setenv("STEP_SMOOTHING_SAMPLES", "5")
+    monkeypatch.setenv("HR_MIN_SIGNAL_RATIO", "0.05")
 
     config = load_config()
 
@@ -90,6 +93,7 @@ def test_env_overrides_are_applied(monkeypatch):
     assert config.publish_enabled is True
     assert config.sample_rate_hz == 100.0
     assert config.step_smoothing_samples == 5
+    assert config.hr_min_signal_ratio == 0.05
 
 
 def test_device_token_has_no_default_value(monkeypatch):
