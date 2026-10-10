@@ -6,6 +6,10 @@ from app.core.security import hash_password, verify_password
 from app.modules.auth import models, schemas
 
 
+def get_user(db: Session, user_id: int) -> models.User | None:
+    return db.query(models.User).filter(models.User.id == user_id).first()
+
+
 def get_user_by_email(db: Session, email: str) -> models.User | None:
     return db.query(models.User).filter(models.User.email == email).first()
 
@@ -69,13 +73,18 @@ def update_profile(db: Session, user: models.User, data: schemas.ProfileUpdateIn
     return user
 
 
-def list_schedule(db: Session, user_id: int) -> list[models.ScheduledWorkout]:
-    return (
-        db.query(models.ScheduledWorkout)
-        .filter(models.ScheduledWorkout.user_id == user_id)
-        .order_by(models.ScheduledWorkout.planned_at)
-        .all()
-    )
+def list_schedule(
+    db: Session,
+    user_id: int,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
+) -> list[models.ScheduledWorkout]:
+    query = db.query(models.ScheduledWorkout).filter(models.ScheduledWorkout.user_id == user_id)
+    if date_from is not None:
+        query = query.filter(models.ScheduledWorkout.planned_at >= date_from)
+    if date_to is not None:
+        query = query.filter(models.ScheduledWorkout.planned_at <= date_to)
+    return query.order_by(models.ScheduledWorkout.planned_at).all()
 
 
 def list_today_schedule(db: Session, user_id: int) -> list[models.ScheduledWorkout]:

@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import get_current_user
-from app.core.security import create_access_token, create_refresh_token
+from app.core.security import create_access_token, create_refresh_token, decode_refresh_token
 from app.core.clock import utc_now
 from app.events import USER_REGISTERED, WORKOUT_MISSED, event_bus
 from app.modules.auth import models, schemas, service
@@ -40,6 +42,19 @@ def login(data: schemas.LoginIn, db: Session = Depends(get_db)):
     )
 
 
+@router.post("/auth/refresh", response_model=schemas.TokenOut)
+def refresh(data: schemas.RefreshIn, db: Session = Depends(get_db)):
+    user_id = decode_refresh_token(data.refresh_token)
+    user = service.get_user(db, int(user_id)) if user_id and user_id.isdigit() else None
+    if user is None or not user.is_active:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+    return schemas.TokenOut(
+        access_token=create_access_token(subject=str(user.id)),
+        refresh_token=create_refresh_token(subject=str(user.id)),
+        user=service.user_out(user),
+    )
+
+
 @router.get("/auth/me", response_model=schemas.MeOut)
 def read_me(current_user: models.User = Depends(get_current_user)):
     return service.me_out(current_user)
@@ -59,10 +74,13 @@ def patch_profile(
 
 @router.get("/schedule", response_model=list[schemas.ScheduleOut])
 def list_schedule(
+    date_from: datetime | None = Query(default=None, alias="from"),
+    date_to: datetime | None = Query(default=None, alias="to"),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    return [service.schedule_out(item) for item in service.list_schedule(db, current_user.id)]
+    items = service.list_schedule(db, current_user.id, date_from, date_to)
+    return [service.schedule_out(item) for item in items]
 
 
 @router.post("/schedule", response_model=schemas.ScheduleOut, status_code=status.HTTP_201_CREATED)
