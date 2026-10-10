@@ -37,9 +37,20 @@ def create_refresh_token(subject: str, expires_minutes: int = 60 * 24 * 14) -> s
     )
 
 
-def decode_access_token(token: str) -> str | None:
+def decode_token(token: str, expected_type: str) -> str | None:
+    """Return the subject of a valid token of the expected type ("access" or "refresh")."""
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        return payload.get("sub")
     except JWTError:
         return None
+    if payload.get("typ") != expected_type:
+        return None
+    return payload.get("sub")
+
+
+def decode_access_token(token: str) -> str | None:
+    return decode_token(token, "access")
+
+
+def decode_refresh_token(token: str) -> str | None:
+    return decode_token(token, "refresh")
