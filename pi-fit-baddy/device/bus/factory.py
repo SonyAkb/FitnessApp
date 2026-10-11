@@ -20,11 +20,13 @@ if TYPE_CHECKING:
 def create_bus(config: Config) -> FakeSMBus | smbus2.SMBus:
     """Создаёт шину I2C согласно `config.sensor_mode`.
 
-    `mock` → `FakeSMBus()`. `real` → ленивый `import smbus2`,
+    `mock` → `FakeSMBus` с виртуальными чипами (`build_mock_bus`). `real` → ленивый `import smbus2`,
     `smbus2.SMBus(config.i2c_bus)`.
     """
     if config.sensor_mode == "mock":
-        return FakeSMBus()
+        from device.virtual.mock_bus import build_mock_bus  # только в mock
+
+        return build_mock_bus(config)
     if config.sensor_mode == "real":
         import smbus2  # лениво: не установлен и не нужен в режиме mock
 
