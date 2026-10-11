@@ -12,11 +12,15 @@ def create_notification(
     return note
 
 
-def list_notifications(db: Session, user_id: int) -> list[models.Notification]:
+def list_notifications(
+    db: Session, user_id: int, unread_only: bool = False, limit: int = 50
+) -> list[models.Notification]:
+    query = db.query(models.Notification).filter(models.Notification.user_id == user_id)
+    if unread_only:
+        query = query.filter(models.Notification.is_read.is_(False))
     return (
-        db.query(models.Notification)
-        .filter(models.Notification.user_id == user_id)
-        .order_by(models.Notification.created_at.desc())
+        query.order_by(models.Notification.created_at.desc(), models.Notification.id.desc())
+        .limit(limit)
         .all()
     )
 
