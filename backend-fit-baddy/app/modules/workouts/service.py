@@ -71,11 +71,15 @@ def complete_session(
     return session
 
 
-def list_history(db: Session, user_id: int) -> list[models.WorkoutSession]:
+def list_history(
+    db: Session, user_id: int, limit: int = 20, offset: int = 0
+) -> list[models.WorkoutSession]:
     return (
         db.query(models.WorkoutSession)
         .filter(models.WorkoutSession.user_id == user_id)
-        .order_by(models.WorkoutSession.started_at.desc())
+        .order_by(models.WorkoutSession.started_at.desc(), models.WorkoutSession.id.desc())
+        .offset(offset)
+        .limit(limit)
         .all()
     )
 
@@ -121,9 +125,9 @@ def session_out(session: models.WorkoutSession) -> schemas.WorkoutSessionOut:
     )
 
 
-def history_out(db: Session, user_id: int) -> schemas.WorkoutHistoryOut:
-    rows = list_history(db, user_id)
+def history_out(db: Session, user_id: int, limit: int = 20, offset: int = 0) -> schemas.WorkoutHistoryOut:
+    rows = list_history(db, user_id, limit=limit, offset=offset)
     return schemas.WorkoutHistoryOut(
         items=[session_out(row) for row in rows],
-        total=len(rows),
+        total=count_all(db, user_id),
     )
