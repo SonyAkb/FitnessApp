@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Body, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -95,5 +95,10 @@ def get_session(
 
 
 @router.get("/history", response_model=schemas.WorkoutHistoryOut)
-def history(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    return service.history_out(db, current_user.id)
+def history(
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return service.history_out(db, current_user.id, limit=limit, offset=offset)
