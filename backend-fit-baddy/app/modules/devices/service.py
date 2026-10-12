@@ -1,11 +1,20 @@
 import random
 import secrets
 import uuid
+from datetime import datetime
 
 from sqlalchemy.orm import Session
 
 from app.core.clock import utc_now
 from app.modules.devices import models, schemas
+
+
+class DeviceOwnedByAnotherUser(Exception):
+    """The device_id is already registered to a different user."""
+
+
+def find_device(db: Session, device_id: str) -> models.Device | None:
+    return db.query(models.Device).filter(models.Device.device_id == device_id).first()
 
 
 def register_device(
@@ -16,8 +25,10 @@ def register_device(
     kind: str = "simulator",
 ) -> models.Device:
     resolved_id = device_id or str(uuid.uuid4())
-    existing = db.query(models.Device).filter(models.Device.device_id == resolved_id).first()
+    existing = find_device(db, resolved_id)
     if existing:
+        if existing.user_id != user_id:
+            raise DeviceOwnedByAnotherUser(resolved_id)
         return existing
     device = models.Device(
         device_id=resolved_id,
@@ -87,14 +98,19 @@ def get_latest(db: Session, user_id: int) -> models.TelemetryPoint | None:
     )
 
 
-def list_history(db: Session, user_id: int, limit: int = 50) -> list[models.TelemetryPoint]:
-    return (
-        db.query(models.TelemetryPoint)
-        .filter(models.TelemetryPoint.user_id == user_id)
-        .order_by(models.TelemetryPoint.timestamp.desc())
-        .limit(limit)
-        .all()
-    )
+def list_history(
+    db: Session,
+    user_id: int,
+    limit: int = 50,
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
+) -> list[models.TelemetryPoint]:
+    query = db.query(models.TelemetryPoint).filter(models.TelemetryPoint.user_id == user_id)
+    if date_from is not None:
+        query = query.filter(models.TelemetryPoint.timestamp >= date_from)
+    if date_to is not None:
+        query = query.filter(models.TelemetryPoint.timestamp <= date_to)
+    return query.order_by(models.TelemetryPoint.timestamp.desc()).limit(limit).all()
 
 
 def device_out(device: models.Device) -> schemas.DeviceRegisterOut:

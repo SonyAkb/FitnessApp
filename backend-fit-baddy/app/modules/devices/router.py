@@ -1,7 +1,8 @@
 import asyncio
 import json
+from datetime import datetime
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Response, WebSocket, WebSocketDisconnect, status
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy.orm import Session
 
@@ -18,18 +19,25 @@ router = APIRouter(tags=["devices & telemetry"])
 @router.post("/devices/register", response_model=schemas.DeviceRegisterOut, status_code=status.HTTP_201_CREATED)
 def register_device(
     data: schemas.DeviceRegisterIn,
+    response: Response,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    device = service.register_device(
-        db,
-        current_user.id,
-        name=data.name,
-        device_id=data.device_id,
-        kind=data.kind,
-    )
+    already_registered = data.device_id is not None and service.find_device(db, data.device_id) is not None
+    try:
+        device = service.register_device(
+            db,
+            current_user.id,
+            name=data.name,
+            device_id=data.device_id,
+            kind=data.kind,
+        )
+    except service.DeviceOwnedByAnotherUser:
+        raise HTTPException(status_code=409, detail="Device is registered to another user")
     db.commit()
     db.refresh(device)
+    if already_registered:
+        response.status_code = status.HTTP_200_OK
     return service.device_out(device)
 
 
@@ -44,10 +52,12 @@ def latest_telemetry(db: Session = Depends(get_db), current_user: User = Depends
 @router.get("/telemetry/history", response_model=list[schemas.TelemetryOut])
 def telemetry_history(
     limit: int = Query(default=50, ge=1, le=200),
+    date_from: datetime | None = Query(default=None, alias="from"),
+    date_to: datetime | None = Query(default=None, alias="to"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return service.list_history(db, current_user.id, limit=limit)
+    return service.list_history(db, current_user.id, limit=limit, date_from=date_from, date_to=date_to)
 
 
 @router.post("/telemetry/simulate", response_model=schemas.TelemetryOut, status_code=status.HTTP_201_CREATED)

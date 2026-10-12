@@ -30,6 +30,6 @@ class TelemetryOut(BaseModel):
 
 
 class TelemetrySimulateIn(BaseModel):
-    steps: int | None = None
-    heart_rate: int | None = None
-    calories: int | None = None
+    steps: int | None = Field(default=None, ge=0)
+    heart_rate: int | None = Field(default=None, ge=0, le=250)
+    calories: int | None = Field(default=None, ge=0)
