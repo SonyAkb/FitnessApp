@@ -2,7 +2,6 @@ package com.fitquest.app.ui;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.text.TextUtils;
 import android.view.View;
 import android.widget.Toast;
 
@@ -10,6 +9,7 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.fitquest.app.FitQuestApp;
+import com.fitquest.app.auth.AuthValidator;
 import com.fitquest.app.api.ApiCalls;
 import com.fitquest.app.api.ApiClient;
 import com.fitquest.app.api.dto.LoginRequest;
@@ -18,8 +18,6 @@ import com.fitquest.app.api.dto.TokenResponse;
 import com.fitquest.app.databinding.ActivityAuthBinding;
 
 public class AuthActivity extends AppCompatActivity {
-
-    private static final int MIN_PASSWORD_LENGTH = 8;
 
     private ActivityAuthBinding binding;
     private boolean registerMode;
@@ -55,17 +53,12 @@ public class AuthActivity extends AppCompatActivity {
         String password = text(binding.inputPassword.getEditText() == null ? "" : binding.inputPassword.getEditText().getText().toString());
         String name = text(binding.inputName.getEditText() == null ? "" : binding.inputName.getEditText().getText().toString());
 
-        if (TextUtils.isEmpty(email) || TextUtils.isEmpty(password)) {
-            toast("Email and password are required");
-            return;
-        }
-        if (registerMode && TextUtils.isEmpty(name)) {
-            toast("Give yourself a display name");
-            return;
-        }
-        if (registerMode && password.length() < MIN_PASSWORD_LENGTH) {
-            binding.inputPassword.setError("Password must be at least " + MIN_PASSWORD_LENGTH + " characters");
-            toast("Password must be at least " + MIN_PASSWORD_LENGTH + " characters");
+        String error = AuthValidator.validate(email, password, name, registerMode);
+        if (error != null) {
+            if (error.startsWith("Password")) {
+                binding.inputPassword.setError(error);
+            }
+            toast(error);
             return;
         }
         binding.inputPassword.setError(null);
