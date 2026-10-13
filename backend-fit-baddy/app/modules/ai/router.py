@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.modules.ai import schemas, service
 from app.modules.auth.models import User
+from app.modules.subscription.service import can_use
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 
@@ -20,6 +21,8 @@ def _out(rec) -> schemas.RecommendationOut:
 
 @router.get("/recommend", response_model=schemas.RecommendationOut)
 def recommend(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if not can_use(db, current_user.id, "ai_recommendations"):
+        raise HTTPException(status_code=403, detail="AI recommendations require the Pro plan")
     rec = service.create_recommendation(db, current_user.id)
     db.commit()
     db.refresh(rec)

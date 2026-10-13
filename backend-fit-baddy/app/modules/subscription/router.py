@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, Header, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -29,7 +29,13 @@ def checkout(
 
 
 @router.post("/subscription/webhook", response_model=schemas.WebhookOut)
-def webhook(data: schemas.WebhookIn, db: Session = Depends(get_db)):
+def webhook(
+    data: schemas.WebhookIn,
+    x_mock_signature: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    if not service.signature_is_valid(x_mock_signature):
+        raise HTTPException(status_code=403, detail="Invalid webhook signature")
     result = service.process_webhook(db, data)
     db.commit()
     return result

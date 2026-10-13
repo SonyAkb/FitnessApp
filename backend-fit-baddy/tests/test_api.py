@@ -1,4 +1,4 @@
-from tests.conftest import auth_header, register_user
+from tests.conftest import WEBHOOK_HEADERS, auth_header, register_user
 
 
 def test_register_and_login(client):
@@ -181,6 +181,7 @@ def test_mock_webhook_idempotency(client):
     first = client.post(
         "/api/v1/subscription/webhook",
         json={"event_id": "evt_test_1", "type": "checkout.completed", "user_id": user["id"]},
+        headers=WEBHOOK_HEADERS,
     )
     assert first.status_code == 200, first.text
     assert first.json()["duplicate"] is False
@@ -190,6 +191,7 @@ def test_mock_webhook_idempotency(client):
     second = client.post(
         "/api/v1/subscription/webhook",
         json={"event_id": "evt_test_1", "type": "checkout.completed", "user_id": user["id"]},
+        headers=WEBHOOK_HEADERS,
     )
     assert second.status_code == 200
     assert second.json()["duplicate"] is True
