@@ -1,0 +1,142 @@
+# CI FitQuest: отдельный job на каждую часть монорепозитория.
+# Job запускается, только если менялась его папка (или этот файл).
+# Каждый job самодостаточен (working-directory = своя папка).
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Определить изменённые части
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      mobile: ${{ steps.filter.outputs.mobile }}
+      pi: ${{ steps.filter.outputs.pi }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend-fit-baddy/**'
+              - '.github/workflows/ci.yml'
+            mobile:
+              - 'mobile-fit-baddy/**'
+              - '.github/workflows/ci.yml'
+            pi:
+              - 'pi-fit-baddy/**'
+              - '.github/workflows/ci.yml'
+
+  backend:
+    name: Backend (pytest на PostgreSQL)
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend-fit-baddy
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: fitquest
+          POSTGRES_PASSWORD: fitquest
+          POSTGRES_DB: fitquest_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fitquest -d fitquest_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg2://fitquest:fitquest@localhost:5432/fitquest_test
+      SECRET_KEY: ci-only-secret
+      MOCK_WEBHOOK_SECRET: ci-webhook-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend-fit-baddy/requirements.txt
+      - name: Установить зависимости
+        run: pip install -r requirements.txt ruff==0.7.4
+      - name: Ruff (не блокирует)
+        continue-on-error: true
+        run: ruff check --select E,F,W --ignore E501 app tests
+      - name: Тесты на PostgreSQL
+        run: pytest -q
+      - name: Тесты на SQLite
+        env:
+          DATABASE_URL: "sqlite+pysqlite:///:memory:"
+        run: pytest -q
+
+  mobile:
+    name: Android (unit-тесты и lint)
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile-fit-baddy
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Unit-тесты
+        run: ./gradlew testDebugUnitTest --no-daemon
+      - name: Lint
+        run: ./gradlew lintDebug --no-daemon
+      - name: Сборка APK
+        run: ./gradlew assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-reports
+          path: |
+            mobile-fit-baddy/app/build/reports
+            mobile-fit-baddy/app/build/test-results
+          if-no-files-found: ignore
+
+  pi:
+    name: Raspberry Pi (pytest в режиме mock)
+    needs: changes
+    if: needs.changes.outputs.pi == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pi-fit-baddy
+    env:
+      SENSOR_MODE: mock
+      GPIOZERO_PIN_FACTORY: mock
+    steps:
+      - uses: actions/checkout@v4
+      - name: Есть ли код узла
+        id: code
+        run: |
+          if [ -f requirements.txt ]; then echo "present=true" >> "$GITHUB_OUTPUT"
+          else echo "present=false" >> "$GITHUB_OUTPUT"; echo "pi-fit-baddy пока без кода — проверки пропущены"; fi
+      - uses: actions/setup-python@v5
+        if: steps.code.outputs.present == 'true'
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: pi-fit-baddy/requirements.txt
+      - name: Установить зависимости (без smbus2 и RPi.GPIO)
+        if: steps.code.outputs.present == 'true'
+        run: pip install -r requirements.txt
+      - name: Тесты без железа
+        if: steps.code.outputs.present == 'true'
+        run: pytest -q
