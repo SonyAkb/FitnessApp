@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Окружение узла (DEVICE_TOKEN — секрет)
+.env
+
+# Большие записи с датчиков храните вне git; небольшие эталонные CSV — в data/
+data/*.raw
+
+.DS_Store
