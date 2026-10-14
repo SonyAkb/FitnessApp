@@ -1,108 +1,132 @@
-# FitQuest backend (backend-fit-baddy)
+# FitQuest Backend (`backend-fit-baddy`)
 
-Educational MVP API for the Android client and a software telemetry simulator.
-This service is the server-bridge between the future Android app and test telemetry.
-It does **not** talk to Raspberry Pi hardware.
+Сервер-мост проекта FitQuest: REST API `/api/v1` и WebSocket телеметрии для Android-клиента, приём телеметрии от симулятора и узла Raspberry Pi, хранение в PostgreSQL. Модульный монолит на FastAPI.
 
-Base URL: `http://localhost:8000`  
-API prefix: `/api/v1`  
-Swagger: [http://localhost:8000/docs](http://localhost:8000/docs)
+- Swagger: `http://localhost:8000/docs` · health: `GET /health`
+- Полный контракт: [`docs/API_CONTRACT.md`](../docs/API_CONTRACT.md) · архитектура: [`docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) · схема БД: [`docs/DATABASE.md`](../docs/DATABASE.md)
 
-## How to run
+> Папка самодостаточна: всё, что нужно для запуска и тестов, лежит здесь. Ссылки на `../docs` — справочные.
 
-From the **repository root**:
+## Быстрый старт
 
-```bash
-cp .env.example .env   # first time only; edit SECRET_KEY
-docker compose up --build
-```
+### Docker (рекомендуется)
 
-This starts PostgreSQL (`db`) and this backend (`backend` on port 8000).
-The old React `frontend` service is still in Compose but is **not** required for this MVP.
-
-Backend only:
+Из корня монорепозитория:
 
 ```bash
-docker compose up --build db backend
+cp .env.example .env
+docker compose up --build            # сервисы db (PostgreSQL 16) и backend (:8000)
 ```
 
-Health check: `GET http://localhost:8000/health`
-
-## Schema
-
-Tables are created on startup with SQLAlchemy `Base.metadata.create_all`
-(no Alembic yet). If you previously ran the old `backend/` against the same
-Compose Postgres volume, start with a fresh volume:
+Только эта папка, без корневого compose:
 
 ```bash
-docker compose down
-docker compose up --build db backend
+docker build -t fitquest-backend .
+docker run --rm -p 8000:8000 -e DATABASE_URL=sqlite:///./dev.sqlite fitquest-backend
 ```
 
-The Compose file uses volume `fitbaddy_pgdata` so it does not reuse the old React-scaffold schema.
+### Локально (Python 3.11)
 
-The Compose file uses volume `fitbaddy_pgdata` so it does not reuse the old React-scaffold schema.
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate            # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+DATABASE_URL=sqlite:///./dev.sqlite uvicorn app.main:app --reload
+```
 
-## Environment
+На Python 3.13+ закреплённые версии `pydantic-core` и `psycopg2-binary` не собираются — используйте 3.11.
 
-| Variable | Default | Meaning |
+## Конфигурация
+
+Все настройки — переменные окружения (`app/core/config.py`), секреты в git не хранятся.
+
+| Переменная | По умолчанию | Назначение |
 |---|---|---|
-| `DATABASE_URL` | `postgresql+psycopg2://fitquest:fitquest@db:5432/fitquest` | SQLAlchemy URL |
-| `SECRET_KEY` | `CHANGE_ME_dev_only_secret` | JWT signing key (change in shared deploys) |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | `1440` | Access token lifetime |
-| `CORS_ORIGINS` | `*` | Comma-separated origins, or `*` |
-| `POSTGRES_USER` / `PASSWORD` / `DB` | `fitquest` | Used by Compose for Postgres |
+| `DATABASE_URL` | `postgresql+psycopg2://fitquest:fitquest@db:5432/fitquest` | строка подключения SQLAlchemy |
+| `SECRET_KEY` | `CHANGE_ME_dev_only_secret` | ключ подписи JWT — **заменить** вне локальной разработки |
+| `ALGORITHM` | `HS256` | алгоритм JWT |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | `1440` | время жизни access-токена |
+| `MOCK_WEBHOOK_SECRET` | `dev-mock-webhook-secret` | ожидаемое значение `X-Mock-Signature` sandbox-webhook |
+| `TELEMETRY_WS_INTERVAL_SECONDS` | `5.0` | период WS-телеметрии |
+| `CORS_ORIGINS` | `*` | разрешённые origin через запятую |
+| `ENV`, `APP_NAME` | `dev`, `FitQuest API` | служебные |
 
-Never commit real secrets. Copy `.env.example` to `.env`.
-
-## Auth
-
-Protected routes expect:
+## Структура
 
 ```
-Authorization: Bearer <access_token>
+app/
+  main.py              сборка приложения, подключение роутеров, lifespan
+  events.py            шина событий в процессе (publish/subscribe)
+  core/                config, database, security (JWT, bcrypt), deps, clock
+  modules/
+    auth/              пользователи, профиль, расписание        — модуль 1
+    workouts/          программы, сессии, история               — модуль 2
+    pet/               питомец: XP, уровень, настроение, серия  — модуль 3
+    dashboard/         сводка (агрегирует данные модулей)       — модуль 4
+    notifications/     центр уведомлений, обработчики событий   — модуль 4
+    devices/           устройства, телеметрия, симулятор, WS    — модуль 5
+    ai/                рекомендации (правила), история          — модуль 5
+    subscription/      Free/Pro, sandbox checkout, webhook      — модуль 5
+tests/                 pytest: API-тесты через TestClient
 ```
 
-Register and login return `{access_token, token_type, user}`.
+Каждый модуль: `router.py` (HTTP) → `schemas.py` (Pydantic) → `service.py` (логика) → `models.py` (SQLAlchemy). Модули не импортируют чужие модели; реакции на действия других модулей идут через события (`app/events.py`). Разрешённые межмодульные вызовы перечислены в `docs/ARCHITECTURE.md`, раздел 5.
 
-## Demo path (API)
+## Эндпоинты
+
+| Модуль | Метод и путь |
+|---|---|
+| auth | `POST /auth/register`, `POST /auth/login`, `POST /auth/refresh`, `GET /auth/me`, `PATCH /profile` |
+| schedule | `GET/POST /schedule`, `PATCH/DELETE /schedule/{id}`, `POST /schedule/{id}/miss` |
+| workouts | `GET/POST /workouts/plans`, `GET /workouts/plans/{id}`, `POST /workouts/sessions`, `GET /workouts/sessions/{id}`, `POST /workouts/sessions/{id}/complete`, `GET /workouts/history` |
+| pet | `GET /pet` |
+| dashboard | `GET /dashboard/summary` |
+| notifications | `GET /notifications`, `POST /notifications/{id}/read` |
+| devices | `POST /devices/register`, `GET /telemetry/latest`, `GET /telemetry/history`, `POST /telemetry/simulate`, `WS /telemetry/ws` |
+| ai | `GET /ai/recommend`, `GET /ai/history` |
+| subscription | `GET /subscription`, `POST /subscription/checkout`, `POST /subscription/webhook` |
+
+Все пути — с префиксом `/api/v1`. Защищённые методы ждут `Authorization: Bearer <access_token>`. WebSocket: `ws://host:8000/api/v1/telemetry/ws?token=<jwt>` или первым сообщением `{"token": "<jwt>"}`.
+
+Запланировано (см. `docs/planning/issues/`): `POST /telemetry/ingest` (приём от Raspberry Pi по `X-Device-Token`), квесты и достижения питомца, каталог упражнений и подходы.
+
+## События
+
+| Событие | Кто публикует | Кто слушает |
+|---|---|---|
+| `user_registered` | auth | pet (создать питомца), subscription (тариф Free) |
+| `workout_completed` | workouts | pet (+XP, настроение, серия), notifications |
+| `workout_missed` | schedule (auth) | pet (−энергия), notifications |
+| `pet_leveled_up` | pet | notifications |
+
+## Демо-сценарий через API
 
 1. `POST /api/v1/auth/register`
 2. `POST /api/v1/workouts/plans`
 3. `POST /api/v1/workouts/sessions`
-4. `POST /api/v1/workouts/sessions/{id}/complete` → in-process `WorkoutCompleted`
-5. `GET /api/v1/pet` — XP +25, mood `happy` (level-up at 100 XP)
-6. `GET /api/v1/dashboard/summary`
-7. `GET /api/v1/notifications`
-8. `POST /api/v1/telemetry/simulate` then `GET /api/v1/telemetry/latest`
+4. `POST /api/v1/workouts/sessions/{id}/complete` → событие `workout_completed`
+5. `GET /api/v1/pet` — XP вырос, настроение `happy`
+6. `GET /api/v1/dashboard/summary`, `GET /api/v1/notifications`
+7. `POST /api/v1/telemetry/simulate` → `GET /api/v1/telemetry/latest`
 
-Live simulator (no Pi): `WS /api/v1/telemetry/ws` — after connect send `{"token":"<jwt>"}`, then samples every few seconds.
-
-## Tests
+## Тесты
 
 ```bash
-cd backend-fit-baddy
-pip install -r requirements.txt
-pytest
+pytest                       # SQLite в памяти, Docker не нужен
 ```
 
-Tests use in-memory SQLite and do not need Docker.
+Тесты — `tests/test_api.py` (сквозные сценарии через `TestClient`). Стратегия, запуск на PostgreSQL и CI — [`docs/TESTING.md`](../docs/TESTING.md).
 
-## Modules
+## База данных
 
-| Folder | Owns |
+Сейчас таблицы создаются при старте (`Base.metadata.create_all`). Переход на Alembic-миграции запланирован. Если схема поменялась, а данные не нужны: `docker compose down -v && docker compose up --build`.
+
+## Владельцы
+
+| Модуль | Владелец |
 |---|---|
-| `app/modules/auth` | users, JWT, profile, schedule |
-| `app/modules/workouts` | plans, sessions, history, `WorkoutCompleted` |
-| `app/modules/pet` | XP, mood, level, streak (event consumer) |
-| `app/modules/dashboard` | aggregated summary |
-| `app/modules/notifications` | list/read + event-created notes |
-| `app/modules/devices` | device register + telemetry simulator / WS |
-| `app/modules/ai` | rule-based recommend + history |
-| `app/modules/subscription` | free/pro sandbox checkout + idempotent webhook |
-
-Cross-module reactions go through `app/events.py` (in-process). Workout code does not import pet models.
-
-See `API.md` for request/response summaries.
-
-Field names accept both the Android contract (`docs/API_CONTRACT.md`) and shorter aliases (`title`/`name`, `planned_at`/`starts_at`, `workout_plan_id`/`plan_id`). Responses include both where they differ.
+| auth, schedule | @NastyaZhilinaRis2 |
+| workouts | @Hupubu |
+| pet | @SonyAkb |
+| dashboard, notifications | @Ananasic07 |
+| devices, ai, subscription | @MouseViolin |
