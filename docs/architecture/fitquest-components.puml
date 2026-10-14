@@ -1,0 +1,85 @@
+@startuml fitquest-components
+' UML-диаграмма компонентов FitQuest (лабораторная №3).
+' Исходник редактируется в любом редакторе с поддержкой PlantUML
+' (плагин PlantUML для IntelliJ/VS Code или https://www.plantuml.com/plantuml).
+' Читаемое представление: fitquest-components.svg (команда рендера — docs/architecture/README.md).
+' Названия компонентов совпадают с docs/ARCHITECTURE.md.
+
+skinparam componentStyle uml2
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam packageStyle rectangle
+left to right direction
+
+actor "Пользователь" as User
+
+package "Система FitQuest (разрабатывает команда)" {
+
+  component "Android-приложение\n(mobile-fit-baddy)" as App
+
+  package "Backend FastAPI (backend-fit-baddy)" as Backend {
+    interface "REST /api/v1\nWS /telemetry/ws" as RestApi
+    interface "POST /telemetry/ingest\n(X-Device-Token)" as IngestApi
+    interface "POST /subscription/webhook\n(X-Mock-Signature)" as WebhookApi
+
+    component "Модуль 1\nАккаунт и расписание\n(auth)" as Auth
+    component "Модуль 2\nТренировки\n(workouts)" as Workouts
+    component "Модуль 3\nПитомец и геймификация\n(pet)" as Pet
+    component "Модуль 4а\nДашборд\n(dashboard)" as Dashboard
+    component "Модуль 4б\nУведомления\n(notifications)" as Notifications
+    component "Модуль 5а\nИИ-рекомендации\n(ai)" as Ai
+    component "Модуль 5б\nУстройства и телеметрия\n(devices)" as Devices
+    component "Модуль 5в\nПодписка\n(subscription)" as Subscription
+    component "Шина событий\n(app/events.py)" as Bus
+
+    RestApi -- Auth
+    RestApi -- Workouts
+    RestApi -- Pet
+    RestApi -- Dashboard
+    RestApi -- Notifications
+    RestApi -- Ai
+    RestApi -- Devices
+    RestApi -- Subscription
+    IngestApi -- Devices
+    WebhookApi -- Subscription
+  }
+
+  component "Узел Raspberry Pi\n(pi-fit-baddy)\nдрайверы, алгоритмы,\n/device/*, публикатор" as Pi
+}
+
+database "PostgreSQL" as Db
+component "Sandbox-провайдер оплаты\n(mock за PaymentProvider)" <<external>> as Pay
+component "Google Colab\n(обучение модели)" <<external>> as Colab
+component "Датчики I2C\nMPU6050, MAX30102" <<external>> as Sensors
+
+User --> App : работает с приложением
+App ..> RestApi : HTTP + JWT: запросы,\nWS: живая телеметрия
+Pi ..> IngestApi : TelemetryDTO\nsource=raspberry_pi
+Sensors --> Pi : I2C: регистры, FIFO
+
+Workouts --> Bus : workout_completed
+Auth --> Bus : user_registered,\nworkout_missed
+Bus --> Pet : начисление XP,\nнастроение, уровень
+Bus --> Notifications : поздравления,\n«питомец скучает»
+Pet --> Bus : pet_leveled_up
+
+Dashboard ..> Pet : читает состояние\n(публичная функция)
+Dashboard ..> Workouts : читает статистику
+Dashboard ..> Devices : последняя телеметрия
+Ai ..> Workouts : история тренировок
+Ai ..> Subscription : can_use(ai_recommendations)
+
+Subscription --> Pay : create_checkout()
+Pay ..> WebhookApi : payment.succeeded /\npayment.failed
+Colab ..> Ai : файл модели (план)
+
+Backend --> Db : SQLAlchemy: каждый модуль\nчитает и пишет только свои таблицы
+
+legend right
+  Сплошная стрелка — вызов или передача данных
+  Пунктир — зависимость от интерфейса или публичной функции
+  <<external>> — внешняя система, не разрабатывается командой
+  (план) — спроектировано, не реализовано
+endlegend
+@enduml
