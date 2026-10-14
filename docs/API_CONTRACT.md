@@ -2,7 +2,9 @@
 
 Общий контракт для `backend-fit-baddy` и `mobile-fit-baddy`. Префикс **`/api/v1`**. Аутентификация: **JWT Bearer** (`Authorization: Bearer <access_token>`), кроме явно открытых методов.
 
-Симулятор и **будущий** Raspberry Pi используют **один и тот же Telemetry DTO**. Клиент не ветвится по источнику — только читает `source`.
+Симулятор и Raspberry Pi (`pi-fit-baddy`) используют **один и тот же Telemetry DTO**. Клиент не ветвится по источнику — только читает `source`.
+
+> Это **целевой** контракт. Не реализованное пока отмечено как **(план)** (`/telemetry/ingest`, WS-рассылка сохранённых точек, настроение `sleeping`); построчный статус — `docs/planning/REQUIREMENTS_TRACE.md`, набор B.
 
 Интерактивная спецификация после запуска: [http://localhost:8000/docs](http://localhost:8000/docs).
 
@@ -25,7 +27,9 @@
 | Пароли | никогда не возвращаются |
 | Секреты | не класть ключи в репозиторий и в этот документ |
 
-Открытые эндпоинты: `POST /auth/register`, `POST /auth/login`, `POST /subscription/webhook` (mock-секрет в заголовке, не JWT пользователя). Health, если есть, тоже открыт.
+Открытые эндпоинты: `POST /auth/register`, `POST /auth/login`, `POST /auth/refresh`, `POST /subscription/webhook` (mock-секрет в заголовке, не JWT пользователя), `GET /health`.
+
+Аутентификация устройства: `POST /telemetry/ingest` принимает заголовок `X-Device-Token` (выдаётся в `POST /devices/register`), не JWT пользователя.
 
 ---
 
@@ -55,7 +59,7 @@
 | `timestamp` | datetime | момент снятия |
 | `source` | string | `simulator` \| `raspberry_pi` |
 
-`raspberry_pi` зарезервирован. В текущем MVP источник всегда `simulator`.
+`source=simulator` — точки из `POST /telemetry/simulate`; `source=raspberry_pi` — точки, которые публикатор узла Pi присылает в `POST /telemetry/ingest` **(план)**. Для Pi `calories` рассчитывается по шагам (решение D-18).
 
 ---
 
@@ -137,6 +141,12 @@
 
 **Response `200`** — те же `access_token`, `refresh_token`, `token_type`, `user`.  
 `401` — неверные учётные данные.
+
+### `POST /api/v1/auth/refresh`
+
+Открытый. **Request:** `{ "refresh_token": "<jwt>" }`.  
+**Response `200`:** новые `access_token`, `refresh_token`, `token_type`.  
+`401` — токен просрочен, подделан или это access-токен (поле `typ` должно быть `refresh`). Защищённые методы принимают **только** токены с `typ=access`.
 
 ### `GET /api/v1/auth/me`
 
@@ -374,7 +384,9 @@ JWT. Состояние персонажа — источник правды н�
 }
 ```
 
-`mood`: `idle` \| `happy` \| `sad` \| `level_up` \| `neutral`. Android treats `neutral` as idle.
+`mood`: `idle` \| `happy` \| `sad` \| `level_up` \| `neutral` \| `sleeping` (план). Android показывает `neutral` как `idle`.
+
+Правила (решения D-13, D-14): +25 XP за тренировку и +5 XP за каждый день серии сверх первого; `xp_to_next_level` = `level × 100`; максимум 50 уровней. Настроение по дням без тренировки: 1–2 → `neutral`, 3–13 → `sad`, 14+ → `sleeping`.
 
 ---
 
@@ -451,13 +463,14 @@ JWT. Привязка устройства к пользователю.
 }
 ```
 
-`kind`: `simulator` \| `raspberry_pi` (второй — задел).
+`kind`: `simulator` \| `raspberry_pi`. Ответ содержит `device_token` — его вписывают в `.env` узла Pi (`DEVICE_TOKEN`). Повторная регистрация своего устройства → `200` с той же записью; чужой `device_id` → `409` (решение D-05).
 
 **Response `201`**
 
 ```json
 {
   "device_id": "sim-user-12",
+  "device_token": "3f9c…",
   "user_id": 12,
   "kind": "simulator",
   "status": "active"
@@ -491,10 +504,30 @@ JWT. Генерация/публикация синтетической точк
 
 **Response `201`:** полный Telemetry DTO с `source: "simulator"`.
 
+### `POST /api/v1/telemetry/ingest` (план)
+
+Открыт для устройств. Заголовок `X-Device-Token: <device_token>`. Пользователь определяется по токену, поле `user_id` в теле не передаётся.
+
+**Request**
+
+```json
+{
+  "device_id": "pi-livingroom-01",
+  "steps": 4213,
+  "heart_rate": 76,
+  "calories": 168,
+  "timestamp": "2026-10-14T12:00:00Z",
+  "source": "raspberry_pi"
+}
+```
+
+**Response `201`:** полный Telemetry DTO.  
+`401` — нет или неверный `X-Device-Token`; `403` — `device_id` не совпадает с токеном; `422` — отрицательные значения или `heart_rate` вне 30–230.
+
 ### `WS /api/v1/telemetry/ws`
 
 JWT: токен в query `?token=` или в заголовке при handshake (как реализует мост).  
-Сервер шлёт JSON Telemetry DTO по мере появления точек.
+Сервер шлёт JSON Telemetry DTO по мере появления **сохранённых** точек (из `simulate` или `ingest`). Сейчас WS сам генерирует синтетику раз в `TELEMETRY_WS_INTERVAL_SECONDS` — переход на рассылку сохранённых точек — (план, решение D-17).
 
 Клиент при обрыве: переподключение, иначе `GET /telemetry/latest` и статус «последнее известное».
 
@@ -506,7 +539,7 @@ JWT: токен в query `?token=` или в заголовке при handshake
 
 ### `GET /api/v1/ai/recommend`
 
-JWT. Может требовать план Pro (`403` с `detail`, что нужна подписка).
+JWT. Требует entitlement `ai_recommendations` (тариф Pro): иначе `403` с `detail`, что нужна подписка.
 
 **Response `200`**
 
@@ -566,13 +599,14 @@ JWT. Mock-оформление, без внешнего эквайера.
 ```json
 {
   "checkout_id": "mock_chk_1",
-  "status": "pending",
+  "plan": "pro",
+  "status": "active",
   "mock": true,
-  "message": "Подтвердите оплату в приложении (демо)"
+  "message": "Sandbox checkout completed. Pro plan activated."
 }
 ```
 
-Клиент затем имитирует успех, вызывая webhook или отдельный confirm — для демо достаточно webhook ниже.
+Checkout идёт через `PaymentProvider`. Sandbox-провайдер (MVP) подтверждает оплату сразу: ответ `status: "active"`, `plan: "pro"`, в `payments` — запись `succeeded`. Провайдер, который отвечает `pending`, не включает Pro — это делает только webhook ниже.
 
 ### `POST /api/v1/subscription/webhook`
 
@@ -604,6 +638,9 @@ JWT. Mock-оформление, без внешнего эквайера.
 
 Повтор с тем же `event_id`: `duplicate: true`, состояние не портится.
 
+`type`: `payment.succeeded` (а также синонимы `checkout.completed`, `subscription.activated`) → Pro; `payment.failed` → тариф не меняется, платёж `failed`.  
+`403` — заголовок `X-Mock-Signature` отсутствует или не равен `MOCK_WEBHOOK_SECRET` из окружения.
+
 ---
 
 ## Соответствие модулям
@@ -614,4 +651,6 @@ JWT. Mock-оформление, без внешнего эквайера.
 | `/workouts` | 2 Тренировки |
 | `/pet` | 3 Питомец |
 | `/dashboard`, `/notifications` | 4 Дашборд и уведомления |
-| `/devices`, `/telemetry`, `/ai`, `/subscription` | 5 ИИ, симулятор, подписка |
+| `/devices`, `/telemetry`, `/ai`, `/subscription` | 5 ИИ, устройства, подписка |
+
+Локальный API узла Raspberry Pi (`/device/status`, `/device/vitals/*`, `WS /device/stream`) описан в `docs/pi.md` §5 и в `pi-fit-baddy/README.md`. Он не является частью этого контракта: Android к нему не обращается.

@@ -1,113 +1,114 @@
-# Запуск MVP FitQuest
+# Запуск FitQuest
 
-Текущий срез: **FastAPI-мост + PostgreSQL + Android Java**. Raspberry Pi не поднимается. Основной клиент — не React.
+Три части запускаются независимо. Контракт API — [`API_CONTRACT.md`](API_CONTRACT.md), архитектура — [`ARCHITECTURE.md`](ARCHITECTURE.md), тесты — [`TESTING.md`](TESTING.md).
 
-Подробный контракт: `docs/API_CONTRACT.md`. Сценарии: `docs/USER_STORIES.md`.
+| Часть | Как запустить | Что нужно установить |
+|---|---|---|
+| Backend + PostgreSQL | `docker compose up --build` | Docker Desktop |
+| Android | Android Studio → открыть `mobile-fit-baddy/` | Android Studio (JDK 17, SDK 34) |
+| Raspberry Pi (без платы) | `cd pi-fit-baddy && SENSOR_MODE=mock uvicorn device.api.main:app` (план) | Python 3.11 |
 
 ---
 
-## 1. Backend и база: Docker Compose
+## 1. Backend и база (Docker Compose)
 
 Из корня репозитория:
 
 ```bash
+cp .env.example .env      # один раз; затем поменять SECRET_KEY и MOCK_WEBHOOK_SECRET
 docker compose up --build
 ```
 
-Ожидаемый результат этого шага: **PostgreSQL** и **FastAPI** (порт `8000`).
+Поднимаются два сервиса: `db` (PostgreSQL 16, порт 5432) и `backend` (FastAPI, порт 8000). Локально ставить PostgreSQL, Python или Node не нужно.
 
-- Целевой код моста — папка `backend-fit-baddy/` (её ведёт агент/владелец backend).
-- Файл `docker-compose.yml` в корне общий: его правят параллельно. Если сервис всё ещё собирается из исторического `./backend`, для демо моста используйте тот сервис, который слушает `:8000` и отдаёт `/api/v1` + Swagger.
-- Сервис `frontend` (React/Vite на `:5173`), если он есть в compose, **не обязателен** для MVP. Это старая заглушка.
-
-Проверка API:
+Проверка:
 
 ```bash
-curl http://localhost:8000/docs
-# или
 curl http://localhost:8000/health
+# Swagger: http://localhost:8000/docs
 ```
 
-Остановка: `Ctrl+C` или `docker compose down`. Том Postgres сохраняет данные между запусками.
+Остановка — `Ctrl+C` или `docker compose down`. Данные БД хранятся в томе `fitbaddy_pgdata`; сбросить — `docker compose down -v`.
 
-Переменные окружения — в `.env` (не коммитить). Ориентир, без секретов:
+Переменные окружения backend (секреты только в `.env`, который не коммитится):
 
+| Переменная | Назначение |
+|---|---|
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | учётка PostgreSQL для Compose |
+| `DATABASE_URL` | строка подключения SQLAlchemy (Compose задаёт сам) |
+| `SECRET_KEY` | ключ подписи JWT |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | время жизни access-токена |
+| `MOCK_WEBHOOK_SECRET` | значение заголовка `X-Mock-Signature` для sandbox-webhook |
+| `TELEMETRY_WS_INTERVAL_SECONDS` | период WS-телеметрии |
+| `CORS_ORIGINS` | разрешённые origin (`*` для разработки) |
+
+Backend без Docker (для разработки и тестов):
+
+```bash
+cd backend-fit-baddy
+python3.11 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+pytest                                                  # SQLite в памяти, Docker не нужен
+DATABASE_URL=sqlite:///./dev.sqlite uvicorn app.main:app --reload
 ```
-POSTGRES_USER=fitquest
-POSTGRES_PASSWORD=fitquest
-POSTGRES_DB=fitquest
-```
-
-JWT-секрет и mock-подпись webhook задаются окружением backend, не хардкодом в git.
 
 ---
 
-## 2. Android: Android Studio
+## 2. Android
 
-1. Откройте папку **`mobile-fit-baddy/`** как проект в Android Studio (не весь монорепозиторий, если Studio просит корень модуля).
-2. Дождитесь Gradle Sync.
-3. Запустите на эмуляторе (API уровня, который указан в модуле).
+1. Android Studio → **File → Open** → папка `mobile-fit-baddy/` (не корень репозитория).
+2. Дождаться Gradle Sync (JDK 17).
+3. Запустить конфигурацию `app` на эмуляторе API 26+.
 
-Приложение — основной UI: регистрация, тренировка, питомец, дашборд, телеметрия, mock Pro.
+Из командной строки:
 
----
-
-## 3. Base URL эмулятора
-
-Эмулятор Android **не** видит `localhost` хоста как себя. Базовый URL API:
-
-```
-http://10.0.2.2:8000
+```bash
+cd mobile-fit-baddy
+./gradlew assembleDebug          # сборка
+./gradlew testDebugUnitTest      # unit-тесты без эмулятора
 ```
 
-`10.0.2.2` — адрес машины, где крутится Docker, с точки зрения эмулятора.
+### Адрес backend
 
 | Где запущено приложение | Base URL |
 |---|---|
-| Эмулятор Android | `http://10.0.2.2:8000` |
-| Браузер / curl на том же ПК | `http://localhost:8000` |
-| Физический телефон в той же Wi-Fi | `http://<LAN-IP-ПК>:8000` (cleartext HTTP должен быть разрешён в манифесте/network security config) |
+| Эмулятор Android | `http://10.0.2.2:8000` (по умолчанию) |
+| Телефон в той же Wi-Fi | `http://<LAN-IP-компьютера>:8000` |
+| Genymotion | `http://10.0.3.2:8000` |
 
-Префикс методов: `/api/v1/...`. Пример логина: `POST http://10.0.2.2:8000/api/v1/auth/login`.
-
-Если Studio и Docker на одной машине, порт `8000` не должен быть занят другим процессом.
+Адрес меняется без пересборки: вкладка **Pack** → поле «API base URL» → «Save base URL».
 
 ---
 
-## 4. Swagger
+## 3. Raspberry Pi — `pi-fit-baddy` (план)
 
-После шага 1 откройте в браузере:
+Подробно — [`pi-fit-baddy/README.md`](../pi-fit-baddy/README.md) и требования [`pi.md`](pi.md).
 
-[http://localhost:8000/docs](http://localhost:8000/docs)
+```bash
+cd pi-fit-baddy
+python3.11 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+SENSOR_MODE=mock GPIOZERO_PIN_FACTORY=mock pytest           # тесты без железа
+SENSOR_MODE=mock uvicorn device.api.main:app --port 8080    # локальный API /device/*
+```
 
-Там же можно выписать JWT и прогнать сценарий без телефона: register → login → plan → session → complete → pet → dashboard.
+Чтобы узел отправлял данные в backend:
 
-ReDoc, если включён: `http://localhost:8000/redoc`.
-
----
-
-## Что не является основным клиентом
-
-Папка **`frontend/`** — React-заглушка раннего каркаса. Её можно собрать для справки, но:
-
-- демонстрация MVP идёт через **Android**;
-- пользовательские истории в `docs/USER_STORIES.md` описывают Android ↔ FastAPI;
-- не нужно поднимать Vite, чтобы считать проект «запущенным».
+1. В Android: Live watch → «Подключить устройство» (тип `raspberry_pi`) → получить `device_id` и `device_token`.
+2. В `pi-fit-baddy/.env`: `BACKEND_URL=http://<IP-компьютера>:8000`, `DEVICE_ID=…`, `DEVICE_TOKEN=…`, `PUBLISH_ENABLED=true`.
+3. На плате — то же самое с `SENSOR_MODE=real` (нужны `smbus2`, `gpiozero`, включённый I2C).
 
 ---
 
-## Что не запускать в этом срезе
+## 4. Смоук-проверка демо-сценария
 
-- **`pi-fit-baddy`** — папка-план под Raspberry Pi, железа в MVP нет. Телеметрия: `POST /api/v1/telemetry/simulate` и WS.
-- **Stripe CLI / боевые ключи** — не требуются. Оплата: mock `POST /api/v1/subscription/checkout` и идемпотентный mock-webhook.
-- Локальная установка PostgreSQL, Python, Node «вручную» для стандартного пути не нужна: инфраструктура — Docker.
+Через Swagger (`http://localhost:8000/docs`) или Android:
 
----
+1. `POST /api/v1/auth/register` — пользователь создан, питомец `level=1`.
+2. `POST /api/v1/workouts/plans` → `POST /api/v1/workouts/sessions` → `POST /api/v1/workouts/sessions/{id}/complete`.
+3. `GET /api/v1/pet` — XP вырос, настроение `happy`.
+4. `GET /api/v1/dashboard/summary` — тренировка засчитана.
+5. `GET /api/v1/notifications` — поздравление.
+6. `POST /api/v1/telemetry/simulate` → экран Live watch показывает пульс и шаги.
 
-## Минимальный смоук после старта
-
-1. Swagger открывается.
-2. `POST /api/v1/auth/register` создаёт пользователя.
-3. Эмулятор логинится на `10.0.2.2:8000`.
-4. Старт и complete сессии меняют `GET /api/v1/pet`.
-5. `POST /api/v1/telemetry/simulate` даёт точку; экран пульса/шагов показывает её или «последнее известное».
+Автоматически тот же путь проверяет тест `backend-fit-baddy/tests/test_api.py::test_full_demo_path`.

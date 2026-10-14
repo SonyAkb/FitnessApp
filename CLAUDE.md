@@ -1,5 +1,15 @@
 FitQuest — Educational Project Context
 
+> **Актуальные решения (14.10.2026) — имеют приоритет над разделами ниже, если противоречат им.**
+> Источник правды по архитектуре — `docs/ARCHITECTURE.md`, решения — `docs/planning/DECISIONS.md`.
+>
+> - Основной клиент — нативное **Android**-приложение (`mobile-fit-baddy/`, Java). Веб-клиент (`frontend/`, React) — архивный черновик, не развивается (D-01). Разделы «Mobile Requirement», «Frontend Rules» и упоминания `apps/web` ниже — устарели.
+> - Структура репозитория: `backend-fit-baddy/` (FastAPI, модули в `app/modules/`), `mobile-fit-baddy/` (Android), `pi-fit-baddy/` (Raspberry Pi, требования `docs/pi.md`), `docs/`. Структура `apps/api`, `apps/web`, `services/simulator` ниже — устарела.
+> - Docker Compose: сервисы `db` и `backend`. Redis не используется. Симулятор телеметрии встроен в backend (`/api/v1/telemetry/simulate`); узел Pi — отдельная папка, публикует `TelemetryDTO(source=raspberry_pi)` в `POST /api/v1/telemetry/ingest` (D-17).
+> - Проект сдаётся по двум дисциплинам: предмет 1 — 5 человек по модулям, предмет 2 — 3 человека по слоям (backend / Android+ИИ / Pi). Каждая из трёх кодовых папок самодостаточна (свой README, зависимости, тесты, CI-job).
+> - Сроки: 11.09.2026 — 25.12.2026.
+
+
 IMPORTANT: This is an educational team project
 
 FitQuest is primarily a university/educational team project, not a production startup.
