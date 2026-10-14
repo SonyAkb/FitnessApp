@@ -1,5 +1,7 @@
 AGENTS.md — Team Development Rules
 
+> **Актуально на 14.10.2026:** основной клиент — Android (`mobile-fit-baddy/`), React-клиент и Redis не используются, узел Raspberry Pi — `pi-fit-baddy/`. Где этот файл говорит о веб-клиенте или React, это устарело. Источник правды — `docs/ARCHITECTURE.md` и `docs/planning/DECISIONS.md`.
+
 Educational Team Project
 
 FitQuest is developed by a team of five students.
