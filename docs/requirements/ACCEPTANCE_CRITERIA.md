@@ -1,6 +1,6 @@
 # Критерии приемки FitQuest
 
-Соответствие пользовательским историям из `docs/USER_STORIES.md`.
+Соответствие пользовательским историям из `docs/requirements/USER_STORIES.md`. Статус выполнения каждого критерия — `docs/planning/REQUIREMENTS_TRACE.md` (набор B).
 
 ---
 
@@ -51,7 +51,7 @@
 | AC4.1 | Старт сессии | `POST /workouts/sessions` с `plan_id` | `201` + `session_id`, `status="in_progress"`, `started_at` |
 | AC4.2 | Отсутствие `plan_id` | Отправить без `plan_id` | `422 Validation Error` (если поле обязательное в MVP) |
 | AC4.3 | Локальный таймер | Таймер на телефоне (не обращается к API каждую секунду) | `200` без ошибок, таймер работает локально |
-| AC4.4 | Повторный старт | Попытка `POST /sessions` для уже `in_progress` плана | Допустимо: создать новую сессию (можно `409` если запрещено) — **согласовать** |
+| AC4.4 | Повторный старт | Попытка `POST /sessions` для уже `in_progress` плана | `201`, создаётся новая сессия (решение D-04) |
 | AC4.5 | Завершение без_DURATION | `POST /sessions/{id}/complete` без тела | `200` + `duration_seconds` рассчитан по `completed_at - started_at` |
 | AC4.6 | Завершение с_DURATION | `POST /sessions/{id}/complete` с `duration_seconds` | `200` + `duration_seconds` = переданное значение |
 
@@ -61,7 +61,7 @@
 
 | № | Критерий | Сценарий | Ожидаемое поведение |
 |---|----------|----------|---------------------|
-| AC5.1 | XP начисляется | Завершение тренировки | `xp_awarded` в ответе `complete` (минимум `+10` для MVP) |
+| AC5.1 | XP начисляется | Завершение тренировки | `xp_awarded` в ответе `complete` (`+25`, плюс бонус серии — решение D-13) |
 | AC5.2 | Обновление питомца | `GET /pet` после завершения | `xp` увеличен на `xp_awarded` |
 | AC5.3 | Повышение уровня | `xp >= xp_to_next_level` | `level` увеличен, `xp_to_next_level` пересчитан (например, `xp_to_next_level = level * 100`) |
 | AC5.4 | Настроение питомца | После завершения | `mood = "happy"` или `mood = "level_up"` (если был level-up) |
@@ -90,7 +90,7 @@
 | № | Критерий | Сценарий | Ожидаемое поведение |
 |---|----------|----------|---------------------|
 | AC7.1 | Регистрация устройства | `POST /devices/register` с `device_id` и `kind="simulator"` | `201` + `status="active"` |
-| AC7.2 | Повторная регистрация | Тот же `device_id` + `user_id` | `200` (idempotent) или `409` — **согласовать** |
+| AC7.2 | Повторная регистрация | Тот же `device_id` + `user_id` | своё устройство → `200` с существующей записью; чужой `device_id` → `409` (решение D-05) |
 | AC7.3 | Генерация точки | `POST /telemetry/simulate` без тела | `201` + `TelemetryDTO` с `source="simulator"`, валидными значениями |
 | AC7.4 | Валидация значений | `steps < 0`, `heart_rate < 0`, `calories < 0` | `422 Validation Error` |
 | AC7.5 | Получение последней точки | `GET /telemetry/latest` | `200` + `TelemetryDTO` (последняя точка текущего пользователя) |
@@ -152,7 +152,7 @@
 | AC11.4 | Webhook идемпотентность | `POST /subscription/webhook` с `event_id` один раз | `duplicate=false`, `plan="pro"` |
 | AC11.5 | Повторный webhook | `POST /subscription/webhook` с тем же `event_id` | `duplicate=true`, `plan` не меняется |
 | AC11.6 | Webhook с неверным заголовком | Отсутствует `X-Mock-Signature` или неверное значение | `403 Forbidden` (mock не принимает запрос) |
-| AC11.7 | Mock-секрет в env | Заголовок сверяется с env | Работает если `X-Mock-Signature == MOCK_PAYMENT_WEBHOOK_SECRET` |
+| AC11.7 | Mock-секрет в env | Заголовок сверяется с env | Работает если `X-Mock-Signature == MOCK_WEBHOOK_SECRET` |
 | AC11.8 | Доступ к AI после Pro | Пользователь обновил подписку | `/ai/recommend` возвращает `200` (не `403`) |
 
 ---
