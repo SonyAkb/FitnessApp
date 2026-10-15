@@ -11,11 +11,13 @@ import contextlib
 from collections.abc import AsyncIterator
 from datetime import datetime, timezone
 
+import httpx
 from fastapi import FastAPI, Query, Request, WebSocket, WebSocketDisconnect
 from contextlib import asynccontextmanager
 
 from device.api.schemas import StatusOut, VitalsOut, vitals_out
 from device.config import Config, load_config
+from device.services.publisher import HTTP_TIMEOUT_S, Publisher
 from device.services.sampler import Sampler
 
 
@@ -31,23 +33,42 @@ def create_app(
     config: Config | None = None,
     *,
     sampler: Sampler | None = None,
+    publisher: Publisher | None = None,
     run_loop: bool = True,
     # Собственное решение: интервал стрима по умолчанию 1 с (контракт: 1–2 с).
     stream_interval_s: float = 1.0,
 ) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        active = sampler or Sampler.from_config(config or load_config())
+        cfg = config or (sampler.config if sampler else load_config())
+        active = sampler or Sampler.from_config(cfg)
         app.state.sampler = active
         active.tick()  # первый ответ не должен быть до первого опроса
-        task = asyncio.create_task(active.run()) if run_loop else None
+        client: httpx.AsyncClient | None = None
+        active_publisher = publisher
+        if run_loop and active_publisher is None and cfg.publish_enabled:
+            client = httpx.AsyncClient(timeout=HTTP_TIMEOUT_S)
+            try:
+                active_publisher = Publisher.from_config(cfg, active, client)
+            except ValueError:
+                await client.aclose()
+                raise
+        app.state.publisher = active_publisher
+        tasks: list[asyncio.Task[None]] = []
+        if run_loop:
+            tasks.append(asyncio.create_task(active.run()))
+            if active_publisher is not None:
+                tasks.append(asyncio.create_task(active_publisher.run()))
         try:
             yield
         finally:
-            if task is not None:
+            for task in tasks:
                 task.cancel()
+            for task in tasks:
                 with contextlib.suppress(asyncio.CancelledError, Exception):
                     await task
+            if client is not None:
+                await client.aclose()
 
     app = FastAPI(title="FitQuest Pi node", lifespan=lifespan)
 
