@@ -69,7 +69,7 @@ class VirtualMPU6050:
 
     `source` — произвольный итератор отсчётов `(x, y, z)` в g; у чипа нет
     собственной зависимости от того, как эти отсчёты сгенерированы (своё
-    решение задачи PI-02, см. Boundaries & Constraints спеки).
+    решение задачи PI-02).
     """
 
     def __init__(
@@ -88,14 +88,13 @@ class VirtualMPU6050:
 
         # Последний полученный от источника отсчёт (в g) — используется для
         # повтора при исчерпании источника (own decision, см. docstring
-        # модуля и Boundaries & Constraints: "не ошибка, повторяется
-        # последний отсчёт").
+        # модуля: исчерпание — не ошибка, повторяется последний отсчёт).
         self._last_sample: tuple[float, float, float] = _ZERO_SAMPLE
 
         # Кэш 6 байт текущего "логического чтения" ACCEL_XOUT_H..ZOUT_L —
         # обновляется только когда доступ происходит именно к ACCEL_XOUT_H
         # (первому байту блока), чтобы побайтовое чтение не перемешивало
-        # оси из разных отсчётов (own decision, см. Design Notes спеки).
+        # оси из разных отсчётов (own decision).
         # Чип только что создан и спит, поэтому исходно это нулевой блок —
         # совпадает с тем, что выдал бы _refresh_accel_cache() в состоянии сна.
         self._accel_cache: list[int] = list(_SLEEP_ACCEL_BYTES)
@@ -117,8 +116,7 @@ class VirtualMPU6050:
         elif reg == _REG_ACCEL_CONFIG:
             self._accel_config = val
         # Немоделируемый регистр: запись принимается и игнорируется — own
-        # decision, см. Boundaries & Constraints спеки ("чип моделирует
-        # только регистры, нужные для шагов").
+        # decision: чип моделирует только регистры, нужные для шагов.
 
     def read_byte_data(self, reg: int) -> int:
         if reg == _REG_WHO_AM_I:
@@ -167,7 +165,7 @@ class VirtualMPU6050:
             # только то, что данные во сне недоступны (docs/pi.md §6:
             # "недоступное при сне чипа"); то, что источник при этом не
             # потребляется, — own decision этой задачи, выбранное как самое
-            # простое поведение, не противоречащее ни даташиту, ни спеке.
+            # простое поведение, не противоречащее даташиту.
             self._accel_cache = list(_SLEEP_ACCEL_BYTES)
             return
 
@@ -179,7 +177,7 @@ class VirtualMPU6050:
             return next(self._source)
         except StopIteration:
             # Источник исчерпан — не ошибка: повторяем последний полученный
-            # отсчёт (own decision, Boundaries & Constraints спеки).
+            # отсчёт (own decision).
             return self._last_sample
 
     @staticmethod
@@ -189,8 +187,7 @@ class VirtualMPU6050:
         """Кодирует `(x, y, z)` в g в 6 байт big-endian int16 для текущего
         диапазона: `raw = round(value_g * LSB/g)`, с насыщением на границах
         int16 — на реальном чипе физическое насыщение выглядит так же
-        (значение "прижимается" к пределу, а не оборачивается), Design
-        Notes спеки.
+        (значение "прижимается" к пределу, а не оборачивается).
         """
         lsb_per_g = _LSB_PER_G[range_code]
         raw_bytes: list[int] = []

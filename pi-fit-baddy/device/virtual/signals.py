@@ -4,7 +4,7 @@
 `device.virtual.scenarios.Segment` — длительность, шаги/мин, ЧСС, шум.
 
 Время — только через `Clock.now()` (`device/clock.py`), без прямых
-`time.sleep`/`time.monotonic`: это требование `docs/pi.md` §3.6 и спеки
+`time.sleep`/`time.monotonic`: это требование `docs/pi.md` §3.6 и задачи
 PI-04. Собственная временная шкала потока (`t = i / sample_rate_hz`)
 синтетическая и не зависит от скорости вызова — ни одна функция здесь не
 обращается к `time` напрямую.

@@ -1,7 +1,6 @@
 """Тесты device/virtual/mpu6050.py: VirtualMPU6050 — сон, диапазон,
 формат данных, побайтовое чтение, исчерпание источника, немоделируемые
-регистры. Acceptance Criteria — спека PI-02
-(_bmad-output/implementation-artifacts/spec-pi-02-virtual-mpu6050.md).
+регистры (задача PI-02).
 """
 
 from __future__ import annotations
@@ -108,7 +107,7 @@ def test_changing_range_rescales_same_physical_signal_across_all_afs_sel_codes()
 def test_sample_beyond_full_scale_saturates_instead_of_wrapping():
     # 10.0g при AFS_SEL=0 (±2g, 16384 LSB/g) даёт raw = 163840, что далеко
     # за пределами int16 — ожидаем прижатие к 32767, а не переполнение
-    # (Design Notes спеки: "значение прижимается к пределу, а не оборачивается").
+    # (значение прижимается к пределу, а не оборачивается).
     chip = VirtualMPU6050(itertools.repeat((10.0, -10.0, 0.0)))
     _wake(chip)
 
