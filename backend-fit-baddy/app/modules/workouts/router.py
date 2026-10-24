@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status, Response
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -102,3 +102,32 @@ def history(
     current_user: User = Depends(get_current_user),
 ):
     return service.history_out(db, current_user.id, limit=limit, offset=offset)
+
+@router.patch("/plans/{plan_id}", response_model=schemas.WorkoutPlanOut)
+def update_plan(
+    plan_id: int,
+    data: schemas.WorkoutPlanUpdateIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    plan = service.get_plan(db, current_user.id, plan_id)
+    if not plan:
+        raise HTTPException(status_code=404, detail="Workout plan not found")
+    service.update_plan(db, plan, data)
+    db.commit()
+    db.refresh(plan)
+    return service.plan_out(plan)
+
+
+@router.delete("/plans/{plan_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_plan(
+    plan_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    plan = service.get_plan(db, current_user.id, plan_id)
+    if not plan:
+        raise HTTPException(status_code=404, detail="Workout plan not found")
+    service.archive_plan(db, plan)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

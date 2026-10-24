@@ -5,8 +5,8 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 class ExerciseIn(BaseModel):
     name: str = Field(min_length=1, max_length=120)
-    sets: int = Field(default=3, ge=1)
-    reps: int = Field(default=10, ge=1)
+    sets: int = Field(default=3, ge=1, le=10) #le=10
+    reps: int = Field(default=10, ge=1, le=50) #le=50
     weight_kg: float | None = None
     rest_seconds: int | None = None
     order_index: int = 0
@@ -83,3 +83,13 @@ class WorkoutSessionOut(BaseModel):
 class WorkoutHistoryOut(BaseModel):
     items: list[WorkoutSessionOut]
     total: int
+#
+class WorkoutPlanUpdateIn(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = None
+    exercises: list[ExerciseIn] | None = None  # если передан — заменяет весь список
+
+    @property
+    def resolved_title(self) -> str | None:
+        return self.title or self.name

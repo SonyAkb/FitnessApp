@@ -7,18 +7,38 @@ from app.modules.workouts import models, schemas
 def list_plans(db: Session, user_id: int) -> list[models.WorkoutPlan]:
     return (
         db.query(models.WorkoutPlan)
-        .filter(models.WorkoutPlan.user_id == user_id)
+        .filter(models.WorkoutPlan.user_id == user_id, models.WorkoutPlan.archived_at.is_(None))
         .order_by(models.WorkoutPlan.id)
         .all()
     )
 
-
 def get_plan(db: Session, user_id: int, plan_id: int) -> models.WorkoutPlan | None:
     return (
         db.query(models.WorkoutPlan)
-        .filter(models.WorkoutPlan.id == plan_id, models.WorkoutPlan.user_id == user_id)
+        .filter(
+            models.WorkoutPlan.id == plan_id,
+            models.WorkoutPlan.user_id == user_id,
+            models.WorkoutPlan.archived_at.is_(None),
+        )
         .first()
     )
+
+def update_plan(db: Session, plan: models.WorkoutPlan, data: schemas.WorkoutPlanUpdateIn) -> models.WorkoutPlan:
+    if data.resolved_title:
+        plan.title = data.resolved_title
+    if "description" in data.model_fields_set:   # позволяет явно очистить описание
+        plan.description = data.description
+    if data.exercises is not None:
+        plan.exercises.clear()                    # delete-orphan удалит старые
+        db.flush()
+        for ex in data.exercises:
+            plan.exercises.append(models.WorkoutPlanExercise(**ex.model_dump()))
+    db.flush()
+    return plan
+
+def archive_plan(db: Session, plan: models.WorkoutPlan) -> None:
+    plan.archived_at = utc_now()
+    db.flush()
 
 
 def create_plan(db: Session, user_id: int, data: schemas.WorkoutPlanCreateIn) -> models.WorkoutPlan:
