@@ -13,7 +13,7 @@ class WorkoutPlan(Base):
     title = Column(String, nullable=False)
     description = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
-
+    archived_at = Column(DateTime(timezone=True), nullable=True)
     exercises = relationship(
         "WorkoutPlanExercise",
         back_populates="plan",
