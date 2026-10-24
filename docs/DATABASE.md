@@ -1,11 +1,11 @@
 # Схема базы данных FitQuest
 
 PostgreSQL 16 (в тестах — SQLite in-memory). Модели — SQLAlchemy 2.x в `backend-fit-baddy/app/modules/*/models.py`.
-Сейчас таблицы создаются `Base.metadata.create_all` при старте; переход на Alembic — задача [CORE-04](planning/issues/subject-1/CORE-04.md).
+Схема управляется миграциями Alembic (`backend-fit-baddy/alembic/`, задача [CORE-04](planning/issues/subject-1/CORE-04.md)); см. раздел 4.
 
 Каждая таблица принадлежит **одному** модулю. Чужой модуль не пишет в неё и не импортирует её модель (правило — `docs/ARCHITECTURE.md`, раздел «Границы модулей»).
 
-## 1. Текущая схема (по коду на 14.10.2026)
+## 1. Текущая схема (по коду на 24.10.2026)
 
 ```mermaid
 erDiagram
@@ -247,7 +247,17 @@ erDiagram
 
 ## 3. Правила
 
-- Изменения схемы — только через миграции Alembic (после подключения).
+- Изменения схемы — только через миграции Alembic (`alembic revision --autogenerate -m "..."`), результат проверять вручную.
 - Историю тренировок (`workout_sessions`, `exercise_sets`) не перезаписывать: это исторические данные.
 - `webhook_events.event_id` уникален — основа идемпотентности webhook.
 - Даты хранятся с часовым поясом (`timestamptz`), в API — ISO-8601 UTC.
+
+## 4. Миграции
+
+Миграции лежат в `backend-fit-baddy/alembic/versions/`. Миграция `0001_initial` создаёт схему из §1 (14 таблиц, включая `workout_plans.archived_at`), `downgrade` удаляет её. Служебная таблица `alembic_version` хранит номер применённой миграции и в схему приложения не входит.
+
+- Адрес БД берётся из `settings.DATABASE_URL`.
+- В Docker миграции применяются при старте backend (`alembic upgrade head` перед `uvicorn`).
+- Изменили модель — создайте новую миграцию и обновите §1 этого документа.
+- Новый файл `models.py` нужно импортировать в `alembic/env.py`.
+- Тесты миграции не используют: схема создаётся через `Base.metadata.create_all` (SQLite in-memory).

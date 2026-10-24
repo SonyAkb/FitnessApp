@@ -2,7 +2,7 @@
 
 Revision ID: 0001
 Revises: 
-Create Date: 2026-10-24 20:58:40.219689
+Create Date: 2026-10-24 22:19:31.327164
 
 """
 from typing import Sequence, Union
@@ -171,6 +171,7 @@ def upgrade() -> None:
     sa.Column('title', sa.String(), nullable=False),
     sa.Column('description', sa.String(), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('archived_at', sa.DateTime(timezone=True), nullable=True),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
