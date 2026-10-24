@@ -78,7 +78,7 @@ tests/                 pytest: API-тесты через TestClient
 |---|---|
 | auth | `POST /auth/register`, `POST /auth/login`, `POST /auth/refresh`, `GET /auth/me`, `PATCH /profile` |
 | schedule | `GET/POST /schedule`, `PATCH/DELETE /schedule/{id}`, `POST /schedule/{id}/miss` |
-| workouts | `GET/POST /workouts/plans`, `GET /workouts/plans/{id}`, `POST /workouts/sessions`, `GET /workouts/sessions/{id}`, `POST /workouts/sessions/{id}/complete`, `GET /workouts/history` |
+| workouts | `GET/POST /workouts/plans`, `GET/PATCH/DELETE /workouts/plans/{id}`, `POST /workouts/sessions`, `GET /workouts/sessions/{id}`, `POST /workouts/sessions/{id}/complete`, `GET /workouts/history` |
 | pet | `GET /pet` |
 | dashboard | `GET /dashboard/summary` |
 | notifications | `GET /notifications`, `POST /notifications/{id}/read` |
@@ -120,6 +120,9 @@ pytest                       # SQLite в памяти, Docker не нужен
 ## База данных
 
 Сейчас таблицы создаются при старте (`Base.metadata.create_all`). Переход на Alembic-миграции запланирован. Если схема поменялась, а данные не нужны: `docker compose down -v && docker compose up --build`.
+
+Планы тренировок удаляются мягко: `DELETE /workouts/plans/{id}` заполняет `workout_plans.archived_at`, история сессий сохраняется. 
+**Колонка `archived_at` появилась позже первой версии схемы, поэтому на старой БД её нужно пересоздать (`docker compose down -v && docker compose up --build`).**
 
 ## Владельцы
 
