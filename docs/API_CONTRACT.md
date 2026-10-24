@@ -259,6 +259,7 @@ JWT. Помечает слот как пропущенный, публикует
   "order_index": 0
 }
 ```
+Границы: `sets` 1–10, `reps` 1–50, иначе `422`.
 
 **WorkoutPlan**
 
@@ -279,6 +280,21 @@ JWT. **Response `200`:** `WorkoutPlan[]`.
 
 JWT. **Request:** `name`, опционально `description`, `exercises[]`.  
 **Response `201`:** `WorkoutPlan`.
+
+### `PATCH /api/v1/workouts/plans/{id}`
+
+JWT. Частичное обновление плана. Все поля необязательные: `name` (или `title`), `description`, `exercises[]`.
+Если `exercises` передан, он **заменяет весь список** упражнений.
+
+**Response `200`:** `WorkoutPlan`.  
+`404` — плана нет, он чужой или архивирован. `422` — выход за границы `sets`/`reps` или пустое название.
+
+### `DELETE /api/v1/workouts/plans/{id}`
+
+JWT. Архивирует план (заполняет `archived_at`), физически строка не удаляется. История тренировок по этому плану сохраняется.
+Архивный план не попадает в `GET /workouts/plans`, по нему нельзя начать сессию.
+
+**Response `204`** без тела. `404` — плана нет, он чужой или уже архивирован.
 
 ### `POST /api/v1/workouts/sessions`
 

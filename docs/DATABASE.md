@@ -59,6 +59,7 @@ erDiagram
     string title
     string description
     datetime created_at
+    datetime archived_at "nullable, NULL = план активен (мягкое удаление)"
   }
   workout_plan_exercises {
     int id PK
