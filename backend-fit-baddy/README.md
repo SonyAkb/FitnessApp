@@ -31,7 +31,9 @@ docker run --rm -p 8000:8000 -e DATABASE_URL=sqlite:///./dev.sqlite fitquest-bac
 python3.11 -m venv .venv
 source .venv/bin/activate            # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-DATABASE_URL=sqlite:///./dev.sqlite uvicorn app.main:app --reload
+export DATABASE_URL=sqlite:///./dev.sqlite   # Windows cmd: set DATABASE_URL=sqlite:///./dev.sqlite
+alembic upgrade head                         # создать таблицы (если alembic не найден: python -m alembic upgrade head)
+uvicorn app.main:app --reload
 ```
 
 На Python 3.13+ закреплённые версии `pydantic-core` и `psycopg2-binary` не собираются — используйте 3.11.
@@ -67,6 +69,8 @@ app/
     devices/           устройства, телеметрия, симулятор, WS    — модуль 5
     ai/                рекомендации (правила), история          — модуль 5
     subscription/      Free/Pro, sandbox checkout, webhook      — модуль 5
+alembic/               миграции схемы БД (versions/0001_initial.py)
+alembic.ini            конфигурация Alembic (URL берётся из DATABASE_URL)
 tests/                 pytest: API-тесты через TestClient
 ```
 
@@ -119,10 +123,24 @@ pytest                       # SQLite в памяти, Docker не нужен
 
 ## База данных
 
-Сейчас таблицы создаются при старте (`Base.metadata.create_all`). Переход на Alembic-миграции запланирован. Если схема поменялась, а данные не нужны: `docker compose down -v && docker compose up --build`.
+Схема управляется миграциями [Alembic](https://alembic.sqlalchemy.org). При старте в Docker выполняется `alembic upgrade head` перед `uvicorn`; приложение само таблицы не создаёт.
 
-Планы тренировок удаляются мягко: `DELETE /workouts/plans/{id}` заполняет `workout_plans.archived_at`, история сессий сохраняется. 
-**Колонка `archived_at` появилась позже первой версии схемы, поэтому на старой БД её нужно пересоздать (`docker compose down -v && docker compose up --build`).**
+```bash
+alembic upgrade head                              # применить все миграции
+alembic downgrade base                            # откатить всё
+alembic downgrade -1                              # откатить последнюю
+alembic revision --autogenerate -m "описание"     # новая миграция после изменения моделей
+alembic check                                     # убедиться, что миграции совпадают с моделями
+```
+
+Правила:
+- Изменили модель (`models.py`) — создайте новую миграцию и **проверьте её вручную** перед коммитом.
+- Новый `models.py` нужно импортировать в `alembic/env.py`, иначе миграция его не увидит.
+- Если у вас старая dev-БД, созданная до перехода на Alembic: `docker compose down -v && docker compose up --build`.
+
+Тесты миграции не используют: схема создаётся через `Base.metadata.create_all` (SQLite в памяти).
+
+Планы тренировок удаляются мягко: `DELETE /workouts/plans/{id}` заполняет `workout_plans.archived_at`, история сессий сохраняется. Колонка входит в миграцию `0001_initial`.
 
 ## Владельцы
 
