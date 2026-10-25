@@ -17,6 +17,7 @@ from contextlib import asynccontextmanager
 
 from device.api.schemas import StatusOut, VitalsOut, vitals_out
 from device.config import Config, load_config
+from device.services.pairing import resolve_credentials
 from device.services.publisher import HTTP_TIMEOUT_S, Publisher
 from device.services.sampler import Sampler
 
@@ -49,7 +50,14 @@ def create_app(
         if run_loop and active_publisher is None and cfg.publish_enabled:
             client = httpx.AsyncClient(timeout=HTTP_TIMEOUT_S)
             try:
-                active_publisher = Publisher.from_config(cfg, active, client)
+                credentials = await resolve_credentials(cfg, client)
+                active_publisher = Publisher.from_config(
+                    cfg,
+                    active,
+                    client,
+                    device_id=credentials.device_id if credentials else None,
+                    device_token=credentials.device_token if credentials else None,
+                )
             except ValueError:
                 await client.aclose()
                 raise
