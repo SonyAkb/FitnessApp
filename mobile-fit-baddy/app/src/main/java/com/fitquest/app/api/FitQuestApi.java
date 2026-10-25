@@ -22,6 +22,9 @@ import com.fitquest.app.api.dto.UserDto;
 import com.fitquest.app.api.dto.WorkoutHistoryDto;
 import com.fitquest.app.api.dto.WorkoutPlanDto;
 
+import com.fitquest.app.api.dto.QuestDto;
+import com.fitquest.app.api.dto.AchievementDto;
+
 import java.util.List;
 
 import retrofit2.Call;
@@ -101,4 +104,10 @@ public interface FitQuestApi {
 
     @POST("/api/v1/subscription/checkout")
     Call<SubscriptionDto> checkout();
+
+    @GET("/api/v1/pet/quests")
+    Call<List<QuestDto>> getQuests();
+
+    @GET("/api/v1/pet/achievements")
+    Call<List<AchievementDto>> getAchievements();
 }
