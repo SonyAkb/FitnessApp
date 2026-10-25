@@ -1,6 +1,28 @@
 from datetime import datetime
+from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+
+class MuscleGroup(str, Enum):
+    chest = "chest"
+    back = "back"
+    legs = "legs"
+    glutes = "glutes"
+    shoulders = "shoulders"
+    biceps = "biceps"
+    triceps = "triceps"
+    core = "core"
+    full_body = "full_body"
+
+
+class CatalogExerciseOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    muscle_group: MuscleGroup
+    description: str | None = None
 
 
 class ExerciseIn(BaseModel):
@@ -10,6 +32,7 @@ class ExerciseIn(BaseModel):
     weight_kg: float | None = None
     rest_seconds: int | None = None
     order_index: int = 0
+    exercise_id: int | None = None  # ссылка на каталог (WKT-06)
 
 
 class ExerciseOut(ExerciseIn):

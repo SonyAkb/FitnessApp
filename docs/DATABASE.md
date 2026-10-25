@@ -5,7 +5,7 @@ PostgreSQL 16 (в тестах — SQLite in-memory). Модели — SQLAlchem
 
 Каждая таблица принадлежит **одному** модулю. Чужой модуль не пишет в неё и не импортирует её модель (правило — `docs/ARCHITECTURE.md`, раздел «Границы модулей»).
 
-## 1. Текущая схема (по коду на 24.10.2026)
+## 1. Текущая схема (по коду на 25.10.2026)
 
 ```mermaid
 erDiagram
@@ -13,6 +13,7 @@ erDiagram
   users ||--o{ scheduled_workouts : "plans"
   users ||--o{ workout_plans : "owns"
   workout_plans ||--o{ workout_plan_exercises : "contains"
+  exercises |o--o{ workout_plan_exercises : "picked from"
   users ||--o{ workout_sessions : "performs"
   workout_plans ||--o{ workout_sessions : "template of"
   scheduled_workouts |o--o{ workout_sessions : "started from"
@@ -61,9 +62,16 @@ erDiagram
     datetime created_at
     datetime archived_at "nullable, NULL = план активен (мягкое удаление)"
   }
+  exercises {
+    int id PK
+    string name UK
+    string muscle_group "chest | back | legs | glutes | shoulders | biceps | triceps | core | full_body"
+    string description "nullable"
+  }
   workout_plan_exercises {
     int id PK
     int plan_id FK
+    int exercise_id FK "nullable, ON DELETE SET NULL, ссылка на каталог"
     string name "свободный текст"
     int sets
     int reps
@@ -156,7 +164,7 @@ erDiagram
 | Таблица | Модуль (папка) | Владелец |
 |---|---|---|
 | `users`, `profiles`, `scheduled_workouts` | `auth` | @NastyaZhilinaRis2 |
-| `workout_plans`, `workout_plan_exercises`, `workout_sessions` | `workouts` | @Hupubu |
+| `exercises`, `workout_plans`, `workout_plan_exercises`, `workout_sessions` | `workouts` | @Hupubu |
 | `pets` | `pet` | @SonyAkb |
 | `notifications` | `notifications` | @Ananasic07 |
 | `devices`, `telemetry_points` | `devices` | @MouseViolin |
@@ -169,19 +177,12 @@ erDiagram
 
 ```mermaid
 erDiagram
-  exercises ||--o{ workout_plan_exercises : "picked from"
   workout_sessions ||--o{ workout_session_exercises : "includes"
   workout_session_exercises ||--o{ exercise_sets : "logged as"
   users ||--o{ pet_events : "history of pet"
   quests ||--o{ user_quests : "assigned"
   achievements ||--o{ user_achievements : "earned"
 
-  exercises {
-    int id PK
-    string name UK
-    string muscle_group "legs | chest | back | ..."
-    string description
-  }
   workout_session_exercises {
     int id PK
     int session_id FK
@@ -254,10 +255,13 @@ erDiagram
 
 ## 4. Миграции
 
-Миграции лежат в `backend-fit-baddy/alembic/versions/`. Миграция `0001_initial` создаёт схему из §1 (14 таблиц, включая `workout_plans.archived_at`), `downgrade` удаляет её. Служебная таблица `alembic_version` хранит номер применённой миграции и в схему приложения не входит.
+Миграции лежат в `backend-fit-baddy/alembic/versions/`. Миграция `0001_initial` создаёт схему из §1 (14 таблиц) `downgrade` удаляет её.
+Миграция `0002_exercises_catalog` добавляет таблицу `exercises` и колонку `workout_plan_exercises.exercise_id`; `0003_seed_exercises` заполняет каталог начальным набором. 
+Служебная таблица `alembic_version` хранит номер применённой миграции и в схему приложения не входит.
 
 - Адрес БД берётся из `settings.DATABASE_URL`.
 - В Docker миграции применяются при старте backend (`alembic upgrade head` перед `uvicorn`).
 - Изменили модель — создайте новую миграцию и обновите §1 этого документа.
 - Новый файл `models.py` нужно импортировать в `alembic/env.py`.
 - Тесты миграции не используют: схема создаётся через `Base.metadata.create_all` (SQLite in-memory).
+- Поиск по каталогу (`GET /api/v1/workouts/exercises`) фильтрует по `q` в Python через `casefold()`, так как `LIKE`/`lower()` в SQLite не понимают кириллицу.
