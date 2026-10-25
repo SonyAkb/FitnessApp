@@ -6,6 +6,7 @@ public class AchievementDto {
     public String description;   
     public String earned_at;   
     public Integer xp_reward;  
+    public String code;
 
     public String dateText() {   
         if (earned_at == null || earned_at.isEmpty()) return "";
