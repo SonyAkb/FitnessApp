@@ -1,5 +1,6 @@
 package com.fitquest.app.api.dto;
 
+
 public class QuestDto {
     public Integer id;
     public String title;        
@@ -9,6 +10,8 @@ public class QuestDto {
     public String reward;       
     public String status;       
     public String deadline;     
+    public String period;
+    public Integer xp_reward;
 
     public int progressClamped() {           
         int p = progress == null ? 0 : Math.max(0, progress);

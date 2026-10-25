@@ -4,7 +4,8 @@ public class AchievementDto {
     public Integer id;
     public String title;         
     public String description;   
-    public String earned_at;     
+    public String earned_at;   
+    public Integer xp_reward;  
 
     public String dateText() {   
         if (earned_at == null || earned_at.isEmpty()) return "";
