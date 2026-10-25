@@ -5,8 +5,9 @@ __pycache__/
 venv/
 .pytest_cache/
 
-# Окружение узла (DEVICE_TOKEN — секрет)
+# Окружение узла (DEVICE_TOKEN — секрет) и токен, полученный сопряжением
 .env
+.device_token.json
 
 # Большие записи с датчиков храните вне git; небольшие эталонные CSV — в data/
 data/*.raw

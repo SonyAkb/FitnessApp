@@ -62,6 +62,8 @@ class Config:
     backend_url: str | None
     device_id: str | None
     device_token: str | None
+    pairing_code: str | None
+    device_token_file: str
     publish_enabled: bool
     publish_interval_seconds: int
     calories_per_step: float
@@ -98,6 +100,8 @@ def load_config() -> Config:
         backend_url=_env_str("BACKEND_URL", None),
         device_id=_env_str("DEVICE_ID", None),
         device_token=_env_str("DEVICE_TOKEN", None),
+        pairing_code=_env_str("PAIRING_CODE", None),
+        device_token_file=_env_str("DEVICE_TOKEN_FILE", ".device_token.json"),
         publish_enabled=_env_bool("PUBLISH_ENABLED", False),
         publish_interval_seconds=_env_int("PUBLISH_INTERVAL_SECONDS", 5),
         calories_per_step=_env_float("CALORIES_PER_STEP", 0.04),

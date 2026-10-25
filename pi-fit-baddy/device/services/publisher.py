@@ -67,6 +67,7 @@ class Publisher:
         if missing:
             raise ValueError(
                 "PUBLISH_ENABLED=true, но не заданы: " + ", ".join(missing)
+                + (" (или запустите с PAIRING_CODE из приложения)" if "DEVICE_TOKEN" in missing else "")
             )
         parts = urlsplit(backend_url)
         if parts.scheme not in ("http", "https") or not parts.hostname:
@@ -92,13 +93,17 @@ class Publisher:
         sampler: Sampler,
         client: httpx.AsyncClient,
         clock: Clock | None = None,
+        *,
+        device_id: str | None = None,
+        device_token: str | None = None,
     ) -> Publisher:
+        # device_id/device_token передаются, когда узел получил их сопряжением по коду.
         return cls(
             sampler,
             client,
             backend_url=config.backend_url or "",
-            device_id=config.device_id or "",
-            device_token=config.device_token or "",
+            device_id=device_id or config.device_id or "",
+            device_token=device_token or config.device_token or "",
             interval_s=config.publish_interval_seconds,
             calories_per_step=config.calories_per_step,
             clock=clock,
