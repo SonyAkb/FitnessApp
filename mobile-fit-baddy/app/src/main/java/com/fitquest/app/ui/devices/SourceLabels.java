@@ -22,13 +22,14 @@ public final class SourceLabels {
     }
 
     /**
-     * The address the Pi should use. The emulator reaches the computer as 10.0.2.2/localhost,
-     * the Pi cannot — then show a placeholder for the computer's LAN address.
+     * The address the Pi should use. The emulator reaches the computer as 10.0.2.2, the node cannot:
+     * on the same computer it needs localhost, on a real Pi the computer's LAN address.
      */
     public static String backendUrlForPi(String appBaseUrl) {
         String url = appBaseUrl == null ? "" : appBaseUrl.replaceAll("/+$", "");
         if (url.isEmpty() || url.contains("10.0.2.2") || url.contains("localhost") || url.contains("127.0.0.1")) {
-            return "http://<IP of the backend computer>:8000";
+            return "http://localhost:8000   (node on this computer)\n"
+                    + "BACKEND_URL=http://<computer IP in Wi-Fi>:8000   (real Pi)";
         }
         return url;
     }
