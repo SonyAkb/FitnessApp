@@ -4,6 +4,8 @@
 `write_byte_data(addr, reg, val)`, `read_byte_data(addr, reg)` и
 `read_i2c_block_data(addr, reg, length)` — методы, общие для `smbus2.SMBus` и
 `FakeSMBus` (docs/pi.md §3 правило 2). Проверок режима mock/real здесь нет.
+Файл без `__future__` и `typing`: он же запускается на Pi Pico под MicroPython
+в симуляторе Wokwi (`wokwi/`) для сверки с независимой моделью MPU6050.
 
 Регистры и LSB/g — "MPU-6000 and MPU-6050 Register Map and Descriptions",
 Revision 4.2, InvenSense:
@@ -11,10 +13,6 @@ https://www.invensense.com/wp-content/uploads/2015/02/MPU-6000-Register-Map1.pdf
 Таблица LSB/g — собственная копия драйвера (на настоящем чипе это константа из
 даташита, а не данные виртуального чипа PI-02).
 """
-
-from __future__ import annotations
-
-from typing import Any
 
 _REG_ACCEL_CONFIG = 0x1C
 _REG_ACCEL_XOUT_H = 0x3B
@@ -32,7 +30,7 @@ _ACCEL_BLOCK_LEN = 6
 
 
 class Mpu6050:
-    def __init__(self, bus: Any, addr: int) -> None:
+    def __init__(self, bus: object, addr: int) -> None:
         self._bus = bus
         self._addr = addr
         # Диапазон неизвестен до set_range() или первого чтения: на реальной
@@ -51,7 +49,7 @@ class Mpu6050:
     def set_range(self, range_code: int) -> None:
         """Пишет AFS_SEL (биты 4:3 ACCEL_CONFIG), остальные биты сохраняются."""
         if range_code not in _LSB_PER_G:
-            raise ValueError(f"range_code должен быть 0..3, получено {range_code!r}")
+            raise ValueError("range_code должен быть 0..3, получено %r" % (range_code,))
         value = self._bus.read_byte_data(self._addr, _REG_ACCEL_CONFIG)
         value = (value & ~_AFS_SEL_MASK & 0xFF) | (range_code << _AFS_SEL_SHIFT)
         self._bus.write_byte_data(self._addr, _REG_ACCEL_CONFIG, value)

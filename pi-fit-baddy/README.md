@@ -207,6 +207,10 @@ SENSOR_MODE=mock SCENARIO=data/walk_2026-10-14 uvicorn device.api.main:app --por
 curl http://localhost:8080/device/vitals/current
 ```
 
+## Сверка с симулятором Wokwi
+
+Драйвер MPU6050 без изменений запускается на Pi Pico в [Wokwi](https://wokwi.com) против независимой модели датчика, а поток оттуда считается нашим алгоритмом шагов — инструкция в [`wokwi/README.md`](wokwi/README.md). MAX30102 в Wokwi нет.
+
 ## Значения из даташитов
 
 Не придумываются: подтверждённое имеет источник, неподтверждённое помечено в коде `TODO(datasheet)`.
