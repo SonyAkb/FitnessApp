@@ -6,7 +6,7 @@
 |---|---|---|---|---|
 | backend | бизнес-правила сервисов, API-контракт, события, безопасность | pytest + FastAPI `TestClient` | `cd backend-fit-baddy && pytest` | да: PostgreSQL 16 и SQLite |
 | Android | логика без UI: валидация форм, разбор DTO, отображение настроения | JUnit 4 | `cd mobile-fit-baddy && ./gradlew testDebugUnitTest` | да + `lintDebug`, `assembleDebug` |
-| Raspberry Pi | шина и виртуальные чипы, драйверы, шаги и пульс, API `/device/*`, переносимость | pytest, `SENSOR_MODE=mock` | `cd pi-fit-baddy && SENSOR_MODE=mock GPIOZERO_PIN_FACTORY=mock pytest` | да, когда в папке появится код |
+| Raspberry Pi | шина и виртуальные чипы, драйверы, шаги и пульс, API `/device/*`, переносимость | pytest, `SENSOR_MODE=mock` | `cd pi-fit-baddy && SENSOR_MODE=mock GPIOZERO_PIN_FACTORY=mock pytest` | да |
 | Сквозной сценарий | вход → тренировка → питомец → дашборд → уведомление → телеметрия | pytest + ручной прогон на эмуляторе | `pytest tests/test_api.py::test_full_demo_path` | да (API-часть) |
 
 ## Backend (`backend-fit-baddy/tests`)
@@ -68,7 +68,7 @@ Unit-тесты без эмулятора проверяют код, в кото
 - переносимость: драйверы работают с подменённой шиной того же интерфейса;
 - публикатор: формирует `TelemetryDTO` с `source=raspberry_pi` и калориями по шагам; при недоступном backend — буферизует.
 
-Время в тестах — управляемые часы (`Clock`), без `time.sleep`. Код модуля ещё не написан (задачи `PI-*`).
+Время в тестах — управляемые часы (`Clock`), без `time.sleep`.
 
 ## Ручные проверки
 
