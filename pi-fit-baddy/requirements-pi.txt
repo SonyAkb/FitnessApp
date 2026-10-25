@@ -1,0 +1,4 @@
+# Аппаратные зависимости — только на самой Raspberry Pi (SENSOR_MODE=real).
+# Устанавливаются поверх requirements.txt: pip install -r requirements.txt -r requirements-pi.txt
+smbus2==0.4.3
+gpiozero==2.0.1

@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "author": "FitQuest",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "wokwi-pi-pico", "id": "pico", "top": 0, "left": 0, "attrs": { "env": "micropython-20231227-v1.22.0" } },
+    { "type": "wokwi-mpu6050", "id": "imu", "top": -10, "left": 190, "attrs": {} }
+  ],
+  "connections": [
+    [ "$serialMonitor:RX", "pico:GP0", "", [] ],
+    [ "$serialMonitor:TX", "pico:GP1", "", [] ],
+    [ "pico:GP4", "imu:SDA", "green", [] ],
+    [ "pico:GP5", "imu:SCL", "blue", [] ],
+    [ "pico:3V3", "imu:VCC", "red", [] ],
+    [ "pico:GND.8", "imu:GND", "black", [] ]
+  ],
+  "dependencies": {}
+}
