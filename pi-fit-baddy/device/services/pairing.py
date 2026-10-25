@@ -75,7 +75,11 @@ async def pair(client: httpx.AsyncClient, backend_url: str, code: str, device_id
     try:
         response = await client.post(url, json={"code": code, "device_id": device_id})
     except httpx.HTTPError as exc:
-        raise PairingError(f"Backend недоступен для сопряжения ({type(exc).__name__}): проверьте BACKEND_URL") from exc
+        hint = "проверьте BACKEND_URL"
+        if "10.0.2.2" in backend_url:
+            hint = ("10.0.2.2 — адрес компьютера только изнутри эмулятора Android; узлу на этом же компьютере "
+                    "нужен http://localhost:8000, на Raspberry Pi — http://<IP компьютера в сети>:8000")
+        raise PairingError(f"Backend недоступен для сопряжения ({type(exc).__name__}): {hint}") from exc
     if response.status_code == 200:
         token = response.json().get("device_token")
         if token:

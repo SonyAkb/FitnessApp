@@ -97,6 +97,15 @@ def test_backend_unreachable(tmp_path):
         _resolve(_config(tmp_path, pairing_code="123456", device_id="pi-01"), client)
 
 
+def test_emulator_address_gets_a_hint(tmp_path):
+    def handler(request):
+        raise httpx.ConnectTimeout("timeout")
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    config = _config(tmp_path, backend_url="http://10.0.2.2:8000", pairing_code="123456", device_id="pi-01")
+    with pytest.raises(PairingError, match="localhost:8000"):
+        _resolve(config, client)
+
+
 def test_startup_publishes_with_saved_token(tmp_path):
     pairing.save(str(tmp_path / "token.json"), backend_url=URL, credentials=Credentials("pi-01", "tok-1"))
     config = _config(tmp_path, publish_enabled=True)
