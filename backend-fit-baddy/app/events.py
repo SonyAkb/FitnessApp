@@ -9,6 +9,8 @@ USER_REGISTERED = "user_registered"
 WORKOUT_COMPLETED = "workout_completed"
 WORKOUT_MISSED = "workout_missed"
 PET_LEVELED_UP = "pet_leveled_up"
+QUEST_COMPLETED = "quest_completed"
+ACHIEVEMENT_EARNED = "achievement_earned"
 
 
 class EventBus:
