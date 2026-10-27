@@ -5,7 +5,7 @@ PostgreSQL 16 (в тестах — SQLite in-memory). Модели — SQLAlchem
 
 Каждая таблица принадлежит **одному** модулю. Чужой модуль не пишет в неё и не импортирует её модель (правило — `docs/ARCHITECTURE.md`, раздел «Границы модулей»).
 
-## 1. Текущая схема (по коду на 24.10.2026)
+## 1. Текущая схема (по коду на 27.10.2026)
 
 ```mermaid
 erDiagram
@@ -94,6 +94,39 @@ erDiagram
     date last_activity_date
     datetime updated_at
   }
+  users ||--o{ user_quests : "does"
+  users ||--o{ user_achievements : "earns"
+  quests ||--o{ user_quests : "assigned"
+  achievements ||--o{ user_achievements : "earned"
+    quests {
+    int id PK
+    string code UK "preset: one_workout_today | three_workouts_week"
+    string title
+    string period "daily | weekly"
+    int target
+    int xp_reward
+  }
+  user_quests {
+    int id PK
+    int user_id FK
+    int quest_id FK
+    int progress
+    datetime period_start
+    datetime completed_at "nullable"
+  }
+  achievements {
+    int id PK
+    string code UK "preset: first_workout | three_in_row | week_no_miss"
+    string title
+    int xp_reward
+  }
+  user_achievements {
+    int id PK
+    int user_id FK
+    int achievement_id FK
+    datetime earned_at
+  }
+  
   notifications {
     int id PK
     int user_id FK
@@ -157,7 +190,7 @@ erDiagram
 |---|---|---|
 | `users`, `profiles`, `scheduled_workouts` | `auth` | @NastyaZhilinaRis2 |
 | `workout_plans`, `workout_plan_exercises`, `workout_sessions` | `workouts` | @Hupubu |
-| `pets` | `pet` | @SonyAkb |
+| `pets`, `quests`, `user_quests`, `achievements`, `user_achievements` | `pet` | @SonyAkb |
 | `notifications` | `notifications` | @Ananasic07 |
 | `devices`, `telemetry_points` | `devices` | @MouseViolin |
 | `ai_recommendations` | `ai` | @MouseViolin |
