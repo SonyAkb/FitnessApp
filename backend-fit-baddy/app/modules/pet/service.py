@@ -55,8 +55,9 @@ def period_start(when: datetime, period: str) -> datetime:
     day = when.date() if isinstance(when, datetime) else when
     if period == "weekly":
         start = day - timedelta(days=day.weekday())
-        return datetime(start.year, start.month, start.day, tzinfo=when.tzinfo)
-    return datetime(day.year, day.month, day.day, tzinfo=when.tzinfo)
+    else:
+        start = day
+    return datetime(start.year, start.month, start.day, tzinfo=timezone.utc)
 
 
 def deadline_for(period_start_at: datetime | None, period: str) -> datetime | None:
@@ -125,18 +126,28 @@ def _as_utc(dt: datetime) -> datetime:
     return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt
 
 
+def period_start(when: datetime, period: str) -> datetime:
+    day = when.date() if isinstance(when, datetime) else when
+    if period == "weekly":
+        start = day - timedelta(days=day.weekday())
+    else:
+        start = day
+    return datetime(start.year, start.month, start.day, tzinfo=timezone.utc)
+
+
 def _reset_if_new_period(uq: models.UserQuest, quest: models.Quest, now: datetime) -> None:
     start = period_start(now, quest.period)
-    if uq.period_start is not None:
-        uq.period_start = _as_utc(uq.period_start)
-    if uq.period_start is None or uq.period_start != start:
+    stored = _as_utc(uq.period_start) if uq.period_start is not None else None
+    if stored is None or stored != start:
         uq.period_start = start
         uq.progress = 0
         uq.completed_at = None
+        if quest.period == "weekly":
+            uq.notified = False
 
 
 def apply_quest_progress(db: Session, user_id: int, when: datetime) -> list[models.Quest]:
-    now = when if isinstance(when, datetime) else utc_now()
+    now = _as_utc(when) if isinstance(when, datetime) else utc_now()
     ensure_user_quests(db, user_id)
     pet = get_or_create_pet(db, user_id)
     rows = (
@@ -154,18 +165,20 @@ def apply_quest_progress(db: Session, user_id: int, when: datetime) -> list[mode
         uq.progress = min(quest.target, uq.progress + 1)
         if uq.progress >= quest.target:
             uq.completed_at = now
-            finished.append(quest)
             award_xp(db, pet, quest.xp_reward)
-            event_bus.publish(
-                QUEST_COMPLETED,
-                {
-                    "user_id": user_id,
-                    "code": quest.code,
-                    "title": quest.title,
-                    "xp_reward": quest.xp_reward,
-                },
-                db,
-            )
+            if not uq.notified:
+                uq.notified = True
+                finished.append(quest)
+                event_bus.publish(
+                    QUEST_COMPLETED,
+                    {
+                        "user_id": user_id,
+                        "code": quest.code,
+                        "title": quest.title,
+                        "xp_reward": quest.xp_reward,
+                    },
+                    db,
+                )
     db.flush()
     return finished
 
