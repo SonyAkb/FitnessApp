@@ -59,7 +59,7 @@ flowchart LR
 |---|---|---|---|---|---|---|
 | 1 | Аккаунт и расписание | `auth` | users, profiles, scheduled_workouts | `/auth/*`, `/profile`, `/schedule/*` | Splash, Auth, Pack (профиль), расписание (план) | [@NastyaZhilinaRis2](https://github.com/NastyaZhilinaRis2) |
 | 2 | Тренировки | `workouts` | workout_plans, workout_plan_exercises, workout_sessions (+ exercises, exercise_sets — план) | `/workouts/*` | Quest (планы, сессия, история) | [@Hupubu](https://github.com/Hupubu) |
-| 3 | Питомец и геймификация | `pet` | pets (+ pet_events, quests, achievements — план) | `/pet` (+ `/pet/quests`, `/pet/achievements` — план) | Den (питомец) | [@SonyAkb](https://github.com/SonyAkb) |
+| 3 | Питомец и геймификация | `pet` | pets (+ quests, user_quests, achievements, user_achievements; pet_events — план) | `/pet` (+ `/pet`, `/pet/quests`, `/pet/achievements`) | Den (питомец) | [@SonyAkb](https://github.com/SonyAkb) |
 | 4 | Дашборд и уведомления | `dashboard`, `notifications` | notifications | `/dashboard/summary`, `/notifications/*` | Trail (прогресс), Calls (уведомления) | [@Ananasic07](https://github.com/Ananasic07) |
 | 5 | ИИ, устройства, подписка | `ai`, `devices`, `subscription` | ai_recommendations, devices, telemetry_points, subscriptions, payments, webhook_events | `/ai/*`, `/devices/*`, `/telemetry/*`, `/subscription/*` | Live watch, рекомендация на Trail, тариф на Pack | [@MouseViolin](https://github.com/MouseViolin) |
 | — | Узел Raspberry Pi | `pi-fit-baddy/` (отдельно) | — (кольцевой буфер в памяти) | `/device/*` | — | [@MouseViolin](https://github.com/MouseViolin) |
@@ -119,7 +119,7 @@ flowchart LR
 | `workout_completed` | workouts | `user_id, session_id, completed_at, duration_seconds` | pet, notifications |
 | `workout_missed` | auth (schedule) | `user_id, scheduled_id, title, missed_at` | pet, notifications |
 | `pet_leveled_up` | pet | `user_id, level, name` | notifications |
-| `quest_completed`, `achievement_earned` **(план)** | pet | `user_id, code, xp_reward` | notifications |
+|`quest_completed`, `achievement_earned` | pet | `user_id, code, title, xp_reward` | notifications |
 | `subscription_changed` **(план)** | subscription | `user_id, plan, status` | notifications |
 | `telemetry_received` **(план)** | devices | `TelemetryDTO` | WS-рассылка |
 
@@ -292,7 +292,7 @@ FitQuest построен из трёх отдельных приложений,
 | **Android-приложение** | Экраны входа, питомца, тренировки, прогресса, уведомлений, профиля и телеметрии; локальный таймер тренировки; хранение токена | Не считает XP, уровни и статистику — только показывает то, что вернул сервер | JWT, активная сессия, адрес сервера | Вызывает REST API backend, получает живую телеметрию по WebSocket |
 | **1. Аккаунт и расписание** (`auth`) | Регистрация и вход, JWT, профиль с целью, весом и уровнем; расписание, перенос и пропуск тренировок | Не хранит тренировки и питомца; проверяет только существование плана у слота | users, profiles, scheduled_workouts | Публикует `user_registered`, `workout_missed`; обращается к `workouts` за проверкой плана |
 | **2. Тренировки** (`workouts`) | Программы из упражнений с подходами, повторами и весом; начало и завершение сессии; история | Не начисляет XP и не создаёт уведомления — только сообщает о завершении | workout_plans, workout_plan_exercises, workout_sessions (+ exercises, exercise_sets — план) | Публикует `workout_completed`; отдаёт статистику дашборду и ИИ |
-| **3. Питомец и геймификация** (`pet`) | XP, уровни, энергия, настроение, серия дней; квесты и достижения (план) | Единственное место игровых правил | pets (+ pet_events, quests, achievements — план) | Слушает `user_registered`, `workout_completed`, `workout_missed`; публикует `pet_leveled_up` |
+| **3. Питомец и геймификация** (`pet`) | XP, уровни, энергия, настроение, серия дней; квесты и достижения (план) | Единственное место игровых правил | pets (+ pet_events, quests, achievements — план) | Слушает `user_registered`, `workout_completed`, `workout_missed`; публикует `pet_leveled_up`, `quest_completed`, `achievement_earned` |
 | **4а. Дашборд** (`dashboard`) | Сводка за неделю: тренировки, пропуски, серия, XP, шаги, тренировки по дням | Не хранит своих данных — агрегирует при запросе | — | Читает публичные функции `pet`, `workouts`, `auth`, `devices` |
 | **4б. Уведомления** (`notifications`) | Центр уведомлений: поздравления, «питомец скучает», новый уровень; отметка прочитанного | Не решает, когда питомец грустит — реагирует на события | notifications | Слушает `workout_completed`, `workout_missed`, `pet_leveled_up` |
 | **5а. ИИ-рекомендации** (`ai`) | Рекомендация следующей тренировки с обоснованием и предупреждением «не медицинский совет»; история | Не меняет тренировки и расписание — только советует | ai_recommendations | Читает историю у `workouts`, проверяет тариф у `subscription` |

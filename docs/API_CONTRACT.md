@@ -404,6 +404,50 @@ JWT. Состояние персонажа — источник правды н�
 
 Правила (решения D-13, D-14): +25 XP за тренировку и +5 XP за каждый день серии сверх первого; `xp_to_next_level` = `level × 100`; максимум 50 уровней. Настроение по дням без тренировки: 1–2 → `neutral`, 3–13 → `sad`, 14+ → `sleeping`.
 
+### `GET /api/v1/pet/quests`
+
+JWT. Текущие квесты пользователя с прогрессом и сроком (`docs/DATABASE.md` §2, PET-07/PET-08).
+
+**Response `200`**
+
+```json
+[
+  {
+    "id": 1,
+    "code": "one_workout_today",
+    "title": "1 тренировка сегодня",
+    "description": "Выполни одну тренировку сегодня.",
+    "period": "daily",
+    "progress": 1,
+    "target": 1,
+    "xp_reward": 20,
+    "status": "completed",
+    "deadline": "2026-10-28T00:00:00Z",
+    "completed_at": "2026-10-27T18:40:05Z"
+  }
+]
+```
+
+`period`: `daily` \| `weekly`. `status`: `in_progress` \| `completed`. `deadline` = `period_start` + 1 сутки / 7 суток (UTC). Прогресс обновляется по событию `workout_completed`; при наступлении нового периода прогресс сбрасывается и награда выдаётся заново.
+
+### `GET /api/v1/pet/achievements`
+
+JWT. Только полученные достижения, новые сверху.
+
+**Response `200`**
+
+```json
+[
+  {
+    "id": 1,
+    "code": "first_workout",
+    "title": "Первая тренировка",
+    "description": "Завершена первая тренировка.",
+    "xp_reward": 10,
+    "earned_at": "2026-10-27T18:40:05Z"
+  }
+]
+
 ---
 
 ## Dashboard
@@ -451,7 +495,7 @@ Query: `period=week` (default).
 }
 ```
 
-`kind` (информативно): `workout_completed` \| `workout_missed` \| `reminder` \| `motivation` \| `pet`.
+`kind` (информативно): `workout_completed` \| `workout_missed` \| `reminder` \| `motivation` \| `pet` \| `quest_completed` \| `achievement_earn`.
 
 ### `GET /api/v1/notifications`
 
@@ -666,6 +710,8 @@ Checkout идёт через `PaymentProvider`. Sandbox-провайдер (MVP)
 | `/auth`, `/profile`, `/schedule` | 1 Аккаунт и расписание |
 | `/workouts` | 2 Тренировки |
 | `/pet` | 3 Питомец |
+| `/pet/quests` | 3 Питомец |
+| `/pet/achievements` | 3 Питомец |
 | `/dashboard`, `/notifications` | 4 Дашборд и уведомления |
 | `/devices`, `/telemetry`, `/ai`, `/subscription` | 5 ИИ, устройства, подписка |
 

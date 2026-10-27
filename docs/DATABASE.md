@@ -110,7 +110,7 @@ erDiagram
     int id PK
     int user_id FK
     int quest_id FK
-    int progress
+    int progresss
     datetime period_start
     datetime completed_at "nullable"
   }

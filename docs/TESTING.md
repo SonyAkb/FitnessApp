@@ -33,7 +33,7 @@ docker stop fq-test-pg
 | `test_auth.py` | auth — @NastyaZhilinaRis2 | регистрация (дубликат, слабый пароль, email), вход, refresh, тип токена, просроченный токен, профиль и валидация веса |
 | `test_schedule.py` | auth/schedule — @NastyaZhilinaRis2 | создание слота, запрет прошлого, фильтр `from/to`, изменение/удаление, пропуск и повторный пропуск, чужие слоты |
 | `test_workouts.py` | workouts — @Hupubu | план без упражнений, обязательные поля, повторный старт, длительность, чужая сессия, пагинация истории |
-| `test_pet.py` | pet — @SonyAkb | XP, уровень, серия (тот же день / разрыв), пропуск, границы энергии, `xp_to_next_level`, согласованность XP с дашбордом |
+| `test_pet_quests.py` | pet — @SonyAkb | каждый квест (daily, weekly, повторный complete в тот же день, сброс daily/weekly), каждое достижение (+ запрет дублей), награды XP, оба GET-эндпоинта и 401, уведомление о завершении квеста |
 | `test_notifications.py` | notifications, dashboard — @Ananasic07 | уведомления по событиям, порядок, прочитанные, `unread_only`, `limit`, чужие уведомления, поля сводки |
 | `test_devices.py` | devices — @MouseViolin | контракт `TelemetryDTO` (одинаковый для simulator и raspberry_pi), валидация, 404 без точек, повторная/чужая регистрация устройства, фильтр истории, WebSocket |
 | `test_ai_subscription.py` | ai, subscription — @MouseViolin | Free по умолчанию, ИИ только на Pro, checkout, подпись webhook, идемпотентность, неуспешная оплата, `can_use` |
