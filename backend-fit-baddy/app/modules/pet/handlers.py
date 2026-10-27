@@ -2,6 +2,7 @@ from typing import Any
 
 from app.events import USER_REGISTERED, WORKOUT_COMPLETED, WORKOUT_MISSED, EventBus
 from app.modules.pet import service
+from app.core.clock import utc_now
 
 
 def on_user_registered(payload: dict[str, Any], db) -> None:
@@ -10,10 +11,10 @@ def on_user_registered(payload: dict[str, Any], db) -> None:
 
 
 def on_workout_completed(payload: dict[str, Any], db) -> None:
-    when = payload.get("completed_at")
+    when = payload.get("completed_at") or utc_now()
     service.apply_workout_completed(db, payload["user_id"], when)
-    service.apply_quest_progress(db, payload["user_id"], service.utc_now())
-    service.evaluate_achievements(db, payload["user_id"], service.utc_now())
+    service.apply_quest_progress(db, payload["user_id"], when)      
+    service.evaluate_achievements(db, payload["user_id"], when)   
 
 
 def on_workout_missed(payload: dict[str, Any], db) -> None:
