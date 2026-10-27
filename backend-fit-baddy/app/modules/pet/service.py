@@ -13,6 +13,19 @@ ENERGY_LOSS = 20
 ENERGY_MIN = 0
 ENERGY_MAX = 100
 
+QUEST_CATALOG = [
+    {"code": "one_workout_today", "title": "1 тренировка сегодня",
+     "period": "daily", "target": 1, "xp_reward": 20},
+    {"code": "three_workouts_week", "title": "3 тренировки за неделю",
+     "period": "weekly", "target": 3, "xp_reward": 50},
+]
+
+ACHIEVEMENT_CATALOG = [
+    {"code": "first_workout", "title": "Первая тренировка", "xp_reward": 10},
+    {"code": "three_in_row", "title": "3 тренировки подряд", "xp_reward": 30},
+    {"code": "week_no_miss", "title": "Неделя без пропусков", "xp_reward": 40},
+]
+
 
 def get_pet(db: Session, user_id: int) -> models.Pet | None:
     return db.query(models.Pet).filter(models.Pet.user_id == user_id).first()
@@ -25,6 +38,17 @@ def get_or_create_pet(db: Session, user_id: int, name: str = "FitBuddy") -> mode
         db.add(pet)
         db.flush()
     return pet
+
+def ensure_catalog(db: Session) -> None:
+    known = {code for (code,) in db.query(models.Quest.code).all()}
+    for item in QUEST_CATALOG:
+        if item["code"] not in known:
+            db.add(models.Quest(**item))
+    known = {code for (code,) in db.query(models.Achievement.code).all()}
+    for item in ACHIEVEMENT_CATALOG:
+        if item["code"] not in known:
+            db.add(models.Achievement(**item))
+    db.flush()
 
 
 def period_start(when: datetime, period: str) -> datetime:
@@ -40,6 +64,17 @@ def deadline_for(period_start_at: datetime | None, period: str) -> datetime | No
         return None
     span = timedelta(days=7) if period == "weekly" else timedelta(days=1)
     return period_start_at + span
+
+
+def ensure_user_quests(db: Session, user_id: int) -> list[models.UserQuest]:
+    ensure_catalog(db)
+    existing = {uq.quest_id for uq in db.query(models.UserQuest).filter(
+        models.UserQuest.user_id == user_id).all()}
+    for quest in db.query(models.Quest).order_by(models.Quest.id).all():
+        if quest.id not in existing:
+            db.add(models.UserQuest(user_id=user_id, quest_id=quest.id, progress=0))
+    db.flush()
+    return db.query(models.UserQuest).filter(models.UserQuest.user_id == user_id).all()
 
 
 def award_xp(db: Session, pet: models.Pet, amount: int) -> models.Pet:
@@ -90,13 +125,49 @@ def _as_utc(dt: datetime) -> datetime:
     return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt
 
 
-def _reset_if_new_period(uq, quest, now):
-    start = period_start(_as_utc(now), quest.period)
-    stored = _as_utc(uq.period_start) if uq.period_start is not None else None
-    if stored is None or stored.date() != start.date():
+def _reset_if_new_period(uq: models.UserQuest, quest: models.Quest, now: datetime) -> None:
+    start = period_start(now, quest.period)
+    if uq.period_start is not None:
+        uq.period_start = _as_utc(uq.period_start)
+    if uq.period_start is None or uq.period_start != start:
         uq.period_start = start
         uq.progress = 0
         uq.completed_at = None
+
+
+def apply_quest_progress(db: Session, user_id: int, when: datetime) -> list[models.Quest]:
+    now = when if isinstance(when, datetime) else utc_now()
+    ensure_user_quests(db, user_id)
+    pet = get_or_create_pet(db, user_id)
+    rows = (
+        db.query(models.UserQuest, models.Quest)
+        .join(models.Quest, models.Quest.id == models.UserQuest.quest_id)
+        .filter(models.UserQuest.user_id == user_id)
+        .order_by(models.Quest.id)
+        .all()
+    )
+    finished: list[models.Quest] = []
+    for uq, quest in rows:
+        _reset_if_new_period(uq, quest, now)
+        if uq.completed_at is not None:
+            continue
+        uq.progress = min(quest.target, uq.progress + 1)
+        if uq.progress >= quest.target:
+            uq.completed_at = now
+            finished.append(quest)
+            award_xp(db, pet, quest.xp_reward)
+            event_bus.publish(
+                QUEST_COMPLETED,
+                {
+                    "user_id": user_id,
+                    "code": quest.code,
+                    "title": quest.title,
+                    "xp_reward": quest.xp_reward,
+                },
+                db,
+            )
+    db.flush()
+    return finished
 
 
 def _earn_achievement(db: Session, user_id: int, code: str, now: datetime) -> models.Achievement | None:
@@ -125,7 +196,46 @@ def _earn_achievement(db: Session, user_id: int, code: str, now: datetime) -> mo
     return ach
 
 
+def evaluate_achievements(db: Session, user_id: int, when: datetime | None = None) -> list[models.Achievement]:
+    now = when if isinstance(when, datetime) else utc_now()
+    ensure_catalog(db)
+    pet = get_or_create_pet(db, user_id)
+    earned: list[models.Achievement] = []
+    if pet.last_activity_date is not None:
+        result = _earn_achievement(db, user_id, "first_workout", now)
+        if result:
+            earned.append(result)
+    if pet.streak_days >= 3:
+        result = _earn_achievement(db, user_id, "three_in_row", now)
+        if result:
+            earned.append(result)
+    if pet.streak_days >= 7:
+        result = _earn_achievement(db, user_id, "week_no_miss", now)
+        if result:
+            earned.append(result)
+    return earned
 
+
+def list_user_quests(db: Session, user_id: int) -> list[tuple[models.UserQuest, models.Quest]]:
+    ensure_user_quests(db, user_id)
+    return (
+        db.query(models.UserQuest, models.Quest)
+        .join(models.Quest, models.Quest.id == models.UserQuest.quest_id)
+        .filter(models.UserQuest.user_id == user_id)
+        .order_by(models.Quest.id)
+        .all()
+    )
+
+
+def list_user_achievements(db: Session, user_id: int) -> list[tuple[models.UserAchievement, models.Achievement]]:
+    ensure_catalog(db)
+    return (
+        db.query(models.UserAchievement, models.Achievement)
+        .join(models.Achievement, models.Achievement.id == models.UserAchievement.achievement_id)
+        .filter(models.UserAchievement.user_id == user_id)
+        .order_by(models.UserAchievement.earned_at.desc(), models.UserAchievement.id.desc())
+        .all()
+    )
 
 def apply_workout_missed(db: Session, user_id: int) -> models.Pet:
     pet = get_or_create_pet(db, user_id)
