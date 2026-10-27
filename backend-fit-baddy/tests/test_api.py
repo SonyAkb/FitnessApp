@@ -128,7 +128,7 @@ def test_xp_and_level_after_complete(client):
     )
 
     pet = client.get("/api/v1/pet", headers=headers).json()
-    assert pet["xp"] == 25
+    assert pet["xp"] == 55
     assert pet["level"] == 1
     assert pet["mood"] == "happy"
     assert pet["energy"] > 50
@@ -138,7 +138,7 @@ def test_xp_and_level_after_complete(client):
     assert dashboard.status_code == 200
     summary = dashboard.json()
     assert summary["completed_workouts_count"] == 1
-    assert summary["xp"] == 25
+    assert summary["xp"] == 55
     assert summary["mood"] == "happy"
 
     notes = client.get("/api/v1/notifications", headers=headers)
@@ -229,12 +229,12 @@ def test_full_demo_path(client):
     assert complete.status_code == 200
 
     pet = client.get("/api/v1/pet", headers=headers).json()
-    assert pet["xp"] == 25
+    assert pet["xp"] == 55
     assert pet["mood"] == "happy"
 
     dashboard = client.get("/api/v1/dashboard/summary", headers=headers).json()
     assert dashboard["completed_workouts_count"] == 1
-    assert dashboard["xp"] == 25
+    assert dashboard["xp"] == 55
 
     notes = client.get("/api/v1/notifications", headers=headers).json()
     assert len(notes) >= 1

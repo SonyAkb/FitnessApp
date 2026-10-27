@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
@@ -15,20 +15,15 @@ ENERGY_MAX = 100
 
 QUEST_CATALOG = [
     {"code": "one_workout_today", "title": "1 тренировка сегодня",
-     "description": "Выполни одну тренировку сегодня.",
      "period": "daily", "target": 1, "xp_reward": 20},
     {"code": "three_workouts_week", "title": "3 тренировки за неделю",
-     "description": "Выполни три тренировки в течение недели.",
      "period": "weekly", "target": 3, "xp_reward": 50},
 ]
 
 ACHIEVEMENT_CATALOG = [
-    {"code": "first_workout", "title": "Первая тренировка",
-     "description": "Завершена первая тренировка.", "xp_reward": 10},
-    {"code": "three_in_row", "title": "3 тренировки подряд",
-     "description": "Три дня серии без пропусков.", "xp_reward": 30},
-    {"code": "week_no_miss", "title": "Неделя без пропусков",
-     "description": "Семь дней серии без пропусков.", "xp_reward": 40},
+    {"code": "first_workout", "title": "Первая тренировка", "xp_reward": 10},
+    {"code": "three_in_row", "title": "3 тренировки подряд", "xp_reward": 30},
+    {"code": "week_no_miss", "title": "Неделя без пропусков", "xp_reward": 40},
 ]
 
 
@@ -126,17 +121,21 @@ def apply_workout_completed(db: Session, user_id: int, completed_at) -> models.P
     db.flush()
     return pet
 
+def _as_utc(dt: datetime) -> datetime:
+    return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt
+
+
 def _reset_if_new_period(uq: models.UserQuest, quest: models.Quest, now: datetime) -> None:
-    """Сброс daily/weekly: новый период обнуляет прогресс и снимает отметку о завершении."""
     start = period_start(now, quest.period)
-    if uq.period_start is None or uq.period_start < start:
+    if uq.period_start is not None:
+        uq.period_start = _as_utc(uq.period_start)
+    if uq.period_start is None or uq.period_start != start:
         uq.period_start = start
         uq.progress = 0
         uq.completed_at = None
 
 
 def apply_quest_progress(db: Session, user_id: int, when: datetime) -> list[models.Quest]:
-    """+1 прогресс ко всем активным квестам; завершённый квест даёт XP и событие quest_completed."""
     now = when if isinstance(when, datetime) else utc_now()
     ensure_user_quests(db, user_id)
     pet = get_or_create_pet(db, user_id)
