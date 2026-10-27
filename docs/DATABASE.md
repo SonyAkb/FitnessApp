@@ -206,8 +206,6 @@ erDiagram
   workout_sessions ||--o{ workout_session_exercises : "includes"
   workout_session_exercises ||--o{ exercise_sets : "logged as"
   users ||--o{ pet_events : "history of pet"
-  quests ||--o{ user_quests : "assigned"
-  achievements ||--o{ user_achievements : "earned"
 
   exercises {
     int id PK
@@ -242,34 +240,7 @@ erDiagram
     string payload
     datetime created_at
   }
-  quests {
-    int id PK
-    string code UK
-    string title
-    string period "daily | weekly"
-    int target
-    int xp_reward
-  }
-  user_quests {
-    int id PK
-    int user_id FK
-    int quest_id FK
-    int progress
-    datetime period_start
-    datetime completed_at
-  }
-  achievements {
-    int id PK
-    string code UK "first_workout | three_in_row | week_no_miss"
-    string title
-    int xp_reward
-  }
-  user_achievements {
-    int id PK
-    int user_id FK
-    int achievement_id FK
-    datetime earned_at
-  }
+
 ```
 
 Также планируется:
@@ -294,3 +265,5 @@ erDiagram
 - Изменили модель — создайте новую миграцию и обновите §1 этого документа.
 - Новый файл `models.py` нужно импортировать в `alembic/env.py`.
 - Тесты миграции не используют: схема создаётся через `Base.metadata.create_all` (SQLite in-memory).
+
+Миграция `0002_quest_achievement_tables` создаёт таблицы квестов и достижений (§1) и заполняет справочники предустановленными записями (2 квеста, 3 достижения); `downgrade` удаляет таблицы вместе с seed-строками.
