@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Date, DateTime, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Integer, String, UniqueConstraint
 
 from app.core.clock import utc_now
 from app.core.database import Base
@@ -19,8 +19,6 @@ class Pet(Base):
     updated_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
 
 class Quest(Base):
-    """Справочник квестов (заполняется миграцией 0002, PET-07)."""
-
     __tablename__ = "quests"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -40,6 +38,7 @@ class UserQuest(Base):
     progress = Column(Integer, nullable=False, default=0)
     period_start = Column(DateTime(timezone=True), nullable=True)
     completed_at = Column(DateTime(timezone=True), nullable=True)
+    notified = Column(Boolean, nullable=False, default=False)
 
 
 class Achievement(Base):

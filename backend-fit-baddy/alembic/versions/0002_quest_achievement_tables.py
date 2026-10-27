@@ -38,6 +38,7 @@ def upgrade() -> None:
     sa.Column('progress', sa.Integer(), nullable=False),
     sa.Column('period_start', sa.DateTime(timezone=True), nullable=True),
     sa.Column('completed_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('notified', sa.Boolean(), nullable=False, server_default=sa.false()),
     sa.ForeignKeyConstraint(['quest_id'], ['quests.id'], ),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id')

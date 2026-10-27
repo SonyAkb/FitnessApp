@@ -51,15 +51,6 @@ def ensure_catalog(db: Session) -> None:
     db.flush()
 
 
-def period_start(when: datetime, period: str) -> datetime:
-    day = when.date() if isinstance(when, datetime) else when
-    if period == "weekly":
-        start = day - timedelta(days=day.weekday())
-    else:
-        start = day
-    return datetime(start.year, start.month, start.day, tzinfo=timezone.utc)
-
-
 def deadline_for(period_start_at: datetime | None, period: str) -> datetime | None:
     if period_start_at is None:
         return None
@@ -73,7 +64,13 @@ def ensure_user_quests(db: Session, user_id: int) -> list[models.UserQuest]:
         models.UserQuest.user_id == user_id).all()}
     for quest in db.query(models.Quest).order_by(models.Quest.id).all():
         if quest.id not in existing:
-            db.add(models.UserQuest(user_id=user_id, quest_id=quest.id, progress=0))
+            db.add(models.UserQuest(
+                user_id=user_id,
+                quest_id=quest.id,
+                progress=0,
+                period_start=period_start(utc_now(), quest.period),
+                notified=False,
+            ))
     db.flush()
     return db.query(models.UserQuest).filter(models.UserQuest.user_id == user_id).all()
 
@@ -142,8 +139,7 @@ def _reset_if_new_period(uq: models.UserQuest, quest: models.Quest, now: datetim
         uq.period_start = start
         uq.progress = 0
         uq.completed_at = None
-        if quest.period == "weekly":
-            uq.notified = False
+        uq.notified = False
 
 
 def apply_quest_progress(db: Session, user_id: int, when: datetime) -> list[models.Quest]:
@@ -166,19 +162,19 @@ def apply_quest_progress(db: Session, user_id: int, when: datetime) -> list[mode
         if uq.progress >= quest.target:
             uq.completed_at = now
             award_xp(db, pet, quest.xp_reward)
-            if not uq.notified:
-                uq.notified = True
-                finished.append(quest)
-                event_bus.publish(
-                    QUEST_COMPLETED,
-                    {
-                        "user_id": user_id,
-                        "code": quest.code,
-                        "title": quest.title,
-                        "xp_reward": quest.xp_reward,
-                    },
-                    db,
-                )
+            
+            uq.notified = True
+            finished.append(quest)
+            event_bus.publish(
+                QUEST_COMPLETED,
+                {
+                    "user_id": user_id,
+                    "code": quest.code,
+                    "title": quest.title,
+                    "xp_reward": quest.xp_reward,
+                },
+                db,
+            )
     db.flush()
     return finished
 
