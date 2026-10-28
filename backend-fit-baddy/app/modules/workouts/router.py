@@ -21,6 +21,9 @@ def create_plan(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    missing = service.find_missing_exercise_ids(db, data.exercises)
+    if missing:
+        raise HTTPException(status_code=422, detail=f"Unknown exercise_id: {missing}")
     plan = service.create_plan(db, current_user.id, data)
     db.commit()
     db.refresh(plan)
@@ -113,6 +116,9 @@ def update_plan(
     plan = service.get_plan(db, current_user.id, plan_id)
     if not plan:
         raise HTTPException(status_code=404, detail="Workout plan not found")
+    missing = service.find_missing_exercise_ids(db, data.exercises or [])
+    if missing:
+        raise HTTPException(status_code=422, detail=f"Unknown exercise_id: {missing}")
     service.update_plan(db, plan, data)
     db.commit()
     db.refresh(plan)
@@ -131,3 +137,13 @@ def delete_plan(
     service.archive_plan(db, plan)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/exercises", response_model=list[schemas.CatalogExerciseOut])
+def search_exercises(
+    q: str | None = Query(default=None, max_length=100),
+    muscle_group: schemas.MuscleGroup | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return service.search_exercises(db, q, muscle_group)

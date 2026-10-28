@@ -1,8 +1,19 @@
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from app.core.clock import utc_now
 from app.core.database import Base
+
+
+class Exercise(Base):
+    """Каталог упражнений (WKT-06). Заполняется сид-миграцией."""
+
+    __tablename__ = "exercises"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(120), nullable=False, unique=True)
+    muscle_group = Column(String(32), nullable=False, index=True)
+    description = Column(Text, nullable=True)
 
 
 class WorkoutPlan(Base):
@@ -28,6 +39,10 @@ class WorkoutPlanExercise(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     plan_id = Column(Integer, ForeignKey("workout_plans.id"), nullable=False)
+    # ссылка на каталог; свободный текст в name остаётся
+    exercise_id = Column(
+        Integer, ForeignKey("exercises.id", ondelete="SET NULL"), nullable=True
+    )
     name = Column(String, nullable=False)
     sets = Column(Integer, nullable=False, default=3)
     reps = Column(Integer, nullable=False, default=10)

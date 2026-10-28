@@ -13,6 +13,7 @@ erDiagram
   users ||--o{ scheduled_workouts : "plans"
   users ||--o{ workout_plans : "owns"
   workout_plans ||--o{ workout_plan_exercises : "contains"
+  exercises |o--o{ workout_plan_exercises : "picked from"
   users ||--o{ workout_sessions : "performs"
   workout_plans ||--o{ workout_sessions : "template of"
   scheduled_workouts |o--o{ workout_sessions : "started from"
@@ -61,9 +62,16 @@ erDiagram
     datetime created_at
     datetime archived_at "nullable, NULL = план активен (мягкое удаление)"
   }
+  exercises {
+    int id PK
+    string name UK
+    string muscle_group "chest | back | legs | glutes | shoulders | biceps | triceps | core | full_body"
+    string description "nullable"
+  }
   workout_plan_exercises {
     int id PK
     int plan_id FK
+    int exercise_id FK "nullable, ON DELETE SET NULL, ссылка на каталог"
     string name "свободный текст"
     int sets
     int reps
@@ -202,17 +210,10 @@ erDiagram
 
 ```mermaid
 erDiagram
-  exercises ||--o{ workout_plan_exercises : "picked from"
   workout_sessions ||--o{ workout_session_exercises : "includes"
   workout_session_exercises ||--o{ exercise_sets : "logged as"
   users ||--o{ pet_events : "history of pet"
 
-  exercises {
-    int id PK
-    string name UK
-    string muscle_group "legs | chest | back | ..."
-    string description
-  }
   workout_session_exercises {
     int id PK
     int session_id FK
@@ -258,12 +259,15 @@ erDiagram
 
 ## 4. Миграции
 
-Миграции лежат в `backend-fit-baddy/alembic/versions/`. Миграция `0001_initial` создаёт схему из §1 (14 таблиц, включая `workout_plans.archived_at`), `downgrade` удаляет её. Служебная таблица `alembic_version` хранит номер применённой миграции и в схему приложения не входит.
+Миграции лежат в `backend-fit-baddy/alembic/versions/`. Миграция `0001_initial` создаёт схему из §1 (14 таблиц) `downgrade` удаляет её.
+Миграция `0002_exercises_catalog` добавляет таблицу `exercises` и колонку `workout_plan_exercises.exercise_id`; `0003_seed_exercises` заполняет каталог начальным набором. 
+Служебная таблица `alembic_version` хранит номер применённой миграции и в схему приложения не входит.
 
 - Адрес БД берётся из `settings.DATABASE_URL`.
 - В Docker миграции применяются при старте backend (`alembic upgrade head` перед `uvicorn`).
 - Изменили модель — создайте новую миграцию и обновите §1 этого документа.
 - Новый файл `models.py` нужно импортировать в `alembic/env.py`.
 - Тесты миграции не используют: схема создаётся через `Base.metadata.create_all` (SQLite in-memory).
+- Поиск по каталогу (`GET /api/v1/workouts/exercises`) фильтрует по `q` в Python через `casefold()`, так как `LIKE`/`lower()` в SQLite не понимают кириллицу.
 
 Миграция `0002_quest_achievement_tables` создаёт таблицы квестов и достижений (§1) и заполняет справочники предустановленными записями (2 квеста, 3 достижения); `downgrade` удаляет таблицы вместе с seed-строками.

@@ -26,13 +26,14 @@ DATABASE_URL=postgresql+psycopg2://fitquest:fitquest@localhost:55432/fitquest_te
 docker stop fq-test-pg
 ```
 
-Каждый тест получает чистую схему (`drop_all` + `create_all` в фикстуре `client`). Фикстура `db_session` даёт сессию для unit-тестов сервисов. Хелперы `register_user`, `create_plan`, `complete_workout`, `WEBHOOK_HEADERS` — в `tests/conftest.py`.
+Каждый тест получает чистую схему (`drop_all` + `create_all` в фикстуре `client`). Фикстура `db_session` даёт сессию для unit-тестов сервисов. Хелперы `register_user`, `create_plan`, `complete_workout`, `WEBHOOK_HEADERS` — в `tests/conftest.py`. Каталог упражнений в тестах создаёт фикстура `catalog` (`test_exercises_catalog.py`): сид из миграции `0003` тесты не применяют, так как схема строится через `create_all`.
 
 | Файл | Модуль / владелец | Что покрыто |
 |---|---|---|
 | `test_auth.py` | auth — @NastyaZhilinaRis2 | регистрация (дубликат, слабый пароль, email), вход, refresh, тип токена, просроченный токен, профиль и валидация веса |
 | `test_schedule.py` | auth/schedule — @NastyaZhilinaRis2 | создание слота, запрет прошлого, фильтр `from/to`, изменение/удаление, пропуск и повторный пропуск, чужие слоты |
 | `test_workouts.py` | workouts — @Hupubu | план без упражнений, обязательные поля, повторный старт, длительность, чужая сессия, пагинация истории |
+| `test_exercises_catalog.py` | workouts — @Hupubu | каталог упражнений (WKT-06): список и сортировка, поиск по подстроке без учёта регистра (кириллица), фильтр по группе мышц и их сочетание, пустой результат, неверная группа → 422, доступ без токена → 401, `exercise_id` в плане (создание и PATCH, неизвестный id → 422, свободный текст без id) |
 | `test_pet_quests.py` | pet — @SonyAkb | каждый квест (daily, weekly, повторный complete в тот же день, сброс daily/weekly), каждое достижение (+ запрет дублей), награды XP, оба GET-эндпоинта и 401, уведомление о завершении квеста |
 | `test_notifications.py` | notifications, dashboard — @Ananasic07 | уведомления по событиям, порядок, прочитанные, `unread_only`, `limit`, чужие уведомления, поля сводки |
 | `test_devices.py` | devices — @MouseViolin | контракт `TelemetryDTO` (одинаковый для simulator и raspberry_pi), валидация, 404 без точек, повторная/чужая регистрация устройства, фильтр истории, WebSocket |

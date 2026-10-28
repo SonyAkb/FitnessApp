@@ -151,3 +151,30 @@ def history_out(db: Session, user_id: int, limit: int = 20, offset: int = 0) -> 
         items=[session_out(row) for row in rows],
         total=count_all(db, user_id),
     )
+
+
+def search_exercises(
+    db: Session,
+    q: str | None = None,
+    muscle_group: schemas.MuscleGroup | None = None,
+) -> list[models.Exercise]:
+    """Поиск по каталогу. Регистронезависимость делаем в Python (casefold):
+    LIKE/lower() в SQLite не понимают кириллицу, а каталог маленький."""
+    query = db.query(models.Exercise)
+    if muscle_group is not None:
+        query = query.filter(models.Exercise.muscle_group == muscle_group.value)
+    rows = query.order_by(models.Exercise.name).all()
+    if q and q.strip():
+        needle = q.strip().casefold()
+        rows = [row for row in rows if needle in row.name.casefold()]
+    return rows
+
+
+def find_missing_exercise_ids(db: Session, exercises) -> list[int]:
+    ids = {ex.exercise_id for ex in exercises if ex.exercise_id is not None}
+    if not ids:
+        return []
+    found = {
+        row[0] for row in db.query(models.Exercise.id).filter(models.Exercise.id.in_(ids)).all()
+    }
+    return sorted(ids - found)
