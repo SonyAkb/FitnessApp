@@ -105,11 +105,12 @@
 | US-D2 | 3. Сообщения на 1/2/3/5/7+ день | pet/notifications | SonyAkb | ❌ | — | — | |
 | US-D2 | 4. Push на 2-й и 5-й день | notifications | Ananasic07 | ❌ | — | — | Противоречие П-3, П-12 (push = Won't) |
 | US-D2 | 5. Возвращение: «Рад тебя видеть!», бонус XP | pet | SonyAkb | ❌ | — | — | |
-| US-D3 | 1. Список квестов: условие, прогресс, награда, срок | pet | SonyAkb | ❌ | — | — | Нет `quests`, `user_quests` |
-| US-D3 | 2. Типы: ежедневные/еженедельные/достижения | pet | SonyAkb | ❌ | — | — | |
-| US-D3 | 3. Автообновление прогресса, уведомление | pet | SonyAkb | ❌ | — | — | |
-| US-D3 | 4. Награды: XP, значки | pet | SonyAkb | ❌ | — | — | Нет `achievements`, `user_achievements` |
-| US-D3 | 5. История достижений с датой | pet | SonyAkb | ❌ | — | — | |
+| US-D3 | 1. Список квестов: условие, прогресс, награда, срок | pet | SonyAkb | ✅ | `GET /pet/quests`, `pet/service.quest_out` | T:`test_quests_endpoint_shape_and_auth` | |
+| US-D3 | 2. Типы: ежедневные/еженедельные/достижения | pet | SonyAkb | ✅ | `quests.period=daily\|weekly`, `achievements` | T:`test_daily_quest_completes_on_first_workout_and_awards_xp`, `test_weekly_quest_needs_three_workouts` | |
+| US-D3 | 3. Автообновление прогресса, уведомление | pet | SonyAkb | ✅ | `pet/handlers.on_workout_completed` → `apply_quest_progress`, `quest_completed` → notifications | T:`test_full_event_path_updates_quest_progress`, `test_quest_completion_creates_notification` | |
+| US-D3 | 4. Награды: XP, значки | pet | SonyAkb | ✅ | `award_xp` (квест + достижение) | T:`test_achievement_xp_is_awarded` | |
+| US-D3 | 5. История достижений с датой | pet | SonyAkb | ✅ | `GET /pet/achievements` (`earned_at`) | T:`test_achievements_endpoint_returns_earn|
+
 
 ### E — Мои результаты (@Ananasic07)
 

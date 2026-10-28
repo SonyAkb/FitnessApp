@@ -404,6 +404,50 @@ JWT. Состояние персонажа — источник правды н�
 
 Правила (решения D-13, D-14): +25 XP за тренировку и +5 XP за каждый день серии сверх первого; `xp_to_next_level` = `level × 100`; максимум 50 уровней. Настроение по дням без тренировки: 1–2 → `neutral`, 3–13 → `sad`, 14+ → `sleeping`.
 
+### `GET /api/v1/pet/quests`
+
+JWT. Текущие квесты пользователя с прогрессом и сроком (`docs/DATABASE.md` §2, PET-07/PET-08).
+
+**Response `200`**
+
+```json
+[
+  {
+    "id": 1,
+    "code": "one_workout_today",
+    "title": "1 тренировка сегодня",
+    "description": "Выполни одну тренировку сегодня.",
+    "period": "daily",
+    "progress": 1,
+    "target": 1,
+    "xp_reward": 20,
+    "status": "completed",
+    "deadline": "2026-10-28T00:00:00Z",
+    "completed_at": "2026-10-27T18:40:05Z"
+  }
+]
+```
+
+`period`: `daily` \| `weekly`. `status`: `in_progress` \| `completed`. `deadline` = `period_start` + 1 сутки / 7 суток (UTC). Прогресс обновляется по событию `workout_completed`; при наступлении нового периода прогресс сбрасывается и награда выдаётся заново.
+
+### `GET /api/v1/pet/achievements`
+
+JWT. Только полученные достижения, новые сверху.
+
+**Response `200`**
+
+```json
+[
+  {
+    "id": 1,
+    "code": "first_workout",
+    "title": "Первая тренировка",
+    "description": "Завершена первая тренировка.",
+    "xp_reward": 10,
+    "earned_at": "2026-10-27T18:40:05Z"
+  }
+]
+
 ---
 
 ## Dashboard
@@ -451,7 +495,7 @@ Query: `period=week` (default).
 }
 ```
 
-`kind` (информативно): `workout_completed` \| `workout_missed` \| `reminder` \| `motivation` \| `pet`.
+`kind` (информативно): `workout_completed` \| `workout_missed` \| `reminder` \| `motivation` \| `pet` \| `quest_completed` \| `achievement_earn`.
 
 ### `GET /api/v1/notifications`
 
@@ -520,7 +564,23 @@ JWT. Генерация/публикация синтетической точк
 
 **Response `201`:** полный Telemetry DTO с `source: "simulator"`.
 
-### `POST /api/v1/telemetry/ingest` (план)
+### Подключение Raspberry Pi по коду сопряжения
+
+Телефон и узел Pi не связываются напрямую: оба работают только с backend.
+
+1. Приложение: `POST /api/v1/devices/pairing` (JWT, тело необязательно: `{"kind": "raspberry_pi", "name": "Pi в зале"}`) → `201 {"code": "525023", "kind": "raspberry_pi", "expires_at": "…"}`. Код одноразовый, живёт 10 минут; новый код отменяет предыдущий. Коды хранятся в памяти процесса backend.
+2. Узел Pi: `POST /api/v1/devices/pair` (без JWT) `{"code": "525023", "device_id": "pi-livingroom-01"}` → `200` как у `devices/register` (`device_id`, `device_token`, `user_id`, `kind: "raspberry_pi"`). `404` — код неверный, использован или истёк; `409` — `device_id` уже привязан к другому пользователю; `422` — код не из 6 цифр. Повторное сопряжение того же устройства выдаёт новый токен, старый перестаёт работать.
+3. Приложение видит устройство в `GET /api/v1/devices`.
+
+### `GET /api/v1/devices`
+
+JWT. Устройства пользователя без токенов: `[{"device_id", "name", "kind", "created_at", "last_seen_at"}]`, `last_seen_at` — время последней точки или `null`. `kind`: `simulator` | `raspberry_pi` | `health_connect`.
+
+### `DELETE /api/v1/devices/{device_id}`
+
+JWT. Отвязка: `204`; токен устройства больше не принимается (`ingest` → `401`), полученные точки остаются в истории. `404` — нет такого устройства у пользователя.
+
+### `POST /api/v1/telemetry/ingest`
 
 Открыт для устройств. Заголовок `X-Device-Token: <device_token>`. Пользователь определяется по токену, поле `user_id` в теле не передаётся.
 
@@ -537,13 +597,29 @@ JWT. Генерация/публикация синтетической точк
 }
 ```
 
-**Response `201`:** полный Telemetry DTO.  
+**Response `201`:** полный Telemetry DTO; `source` берётся из типа устройства.  
+Повтор точки с тем же `device_id` и `timestamp` не сохраняется второй раз — `200` с уже сохранённой точкой (публикатор Pi доставляет «минимум один раз»).  
 `401` — нет или неверный `X-Device-Token`; `403` — `device_id` не совпадает с токеном; `422` — отрицательные значения или `heart_rate` вне 30–230.
+
+### `POST /api/v1/telemetry/batch`
+
+JWT. Точки, которые приложение прочитало из Health Connect (туда пишут Mi Fitness, Zepp, Samsung Health, Fitbit и др.). Устройство `health-connect-<user_id>` (`kind: health_connect`) создаётся автоматически.
+
+```json
+{
+  "source": "health_connect",
+  "points": [
+    {"steps": 3500, "heart_rate": 88, "calories": 0, "timestamp": "2026-10-25T09:15:00Z"}
+  ]
+}
+```
+
+От 1 до 500 точек; `steps` — накопленные с местной полуночи, `heart_rate` — средний за 5 минут, 30–230. **Response `200`:** `{"device_id", "accepted", "duplicates"}`; точки с уже полученным `timestamp` пропускаются.
 
 ### `WS /api/v1/telemetry/ws`
 
 JWT: токен в query `?token=` или в заголовке при handshake (как реализует мост).  
-Сервер шлёт JSON Telemetry DTO по мере появления **сохранённых** точек (из `simulate` или `ingest`). Сейчас WS сам генерирует синтетику раз в `TELEMETRY_WS_INTERVAL_SECONDS` — переход на рассылку сохранённых точек — (план, решение D-17).
+Сразу после подключения сервер шлёт последнюю сохранённую точку, затем — каждую новую (из `simulate`, `ingest`, `batch`), проверяя раз в `TELEMETRY_WS_INTERVAL_SECONDS`. Если у пользователя нет реальных устройств (`raspberry_pi`, `health_connect`), сервер в том же цикле генерирует точку симулятора — демо работает без железа.
 
 Клиент при обрыве: переподключение, иначе `GET /telemetry/latest` и статус «последнее известное».
 
@@ -666,6 +742,8 @@ Checkout идёт через `PaymentProvider`. Sandbox-провайдер (MVP)
 | `/auth`, `/profile`, `/schedule` | 1 Аккаунт и расписание |
 | `/workouts` | 2 Тренировки |
 | `/pet` | 3 Питомец |
+| `/pet/quests` | 3 Питомец |
+| `/pet/achievements` | 3 Питомец |
 | `/dashboard`, `/notifications` | 4 Дашборд и уведомления |
 | `/devices`, `/telemetry`, `/ai`, `/subscription` | 5 ИИ, устройства, подписка |
 

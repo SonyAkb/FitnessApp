@@ -20,6 +20,7 @@ import com.fitquest.app.databinding.FragmentHomeBinding;
 import com.fitquest.app.ui.MainActivity;
 import com.fitquest.app.ui.UiFormat;
 import com.fitquest.app.ui.telemetry.TelemetryFragment;
+import com.fitquest.app.ui.quests.QuestsFragment;
 
 public class HomeFragment extends Fragment {
 
@@ -45,6 +46,12 @@ public class HomeFragment extends Fragment {
                         .beginTransaction()
                         .replace(R.id.fragmentContainer, new TelemetryFragment())
                         .addToBackStack("telemetry")
+                        .commit());
+        binding.btnQuestJournal.setOnClickListener(v ->
+                requireActivity().getSupportFragmentManager()
+                        .beginTransaction()
+                        .replace(R.id.fragmentContainer, new QuestsFragment())
+                        .addToBackStack("quests")
                         .commit());
         binding.fox.setOnClickListener(v -> load());
         startFoxAnimation();

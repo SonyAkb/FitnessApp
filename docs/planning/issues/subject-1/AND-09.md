@@ -4,7 +4,7 @@ title: "[Устройства] Android: подключение узла Raspberr
 assignee: MouseViolin
 labels: [subject-1, module:devices, type:feature, sprint-5]
 milestone: "Sprint 5"
-status: todo
+status: done
 story_points: 2
 related_us: [US-H1]
 ---
@@ -15,7 +15,7 @@ related_us: [US-H1]
 - Метка «Симулятор» / «Raspberry Pi» по полю `source`.
 
 ## Критерии готовности
-- [ ] Ручной сценарий подключения Pi в `docs/TESTING.md`
+- [x] Ручной сценарий подключения Pi в `docs/TESTING.md`
 
 ## Зависимости
 - [DEV-05](DEV-05.md) — [Устройства] Приём телеметрии от Raspberry Pi: POST /telemetry/ingest

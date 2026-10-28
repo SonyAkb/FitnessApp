@@ -6,6 +6,7 @@ from app.events import (
     WORKOUT_MISSED,
     EventBus,
     event_bus,
+    ACHIEVEMENT_EARNED, QUEST_COMPLETED,
 )
 
 
@@ -29,3 +30,5 @@ def test_application_wires_expected_consumers(client):
     assert modules(WORKOUT_COMPLETED) == {"app.modules.pet.handlers", "app.modules.notifications.handlers"}
     assert modules(WORKOUT_MISSED) == {"app.modules.pet.handlers", "app.modules.notifications.handlers"}
     assert modules(PET_LEVELED_UP) == {"app.modules.notifications.handlers"}
+    assert modules(QUEST_COMPLETED) == {"app.modules.notifications.handlers"}
+    assert modules(ACHIEVEMENT_EARNED) == {"app.modules.notifications.handlers"}
