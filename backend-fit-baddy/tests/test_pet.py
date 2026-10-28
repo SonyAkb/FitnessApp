@@ -79,7 +79,7 @@ def test_pet_reacts_to_completed_workout_via_api(client):
     headers = auth_header(token)
     done = complete_workout(client, headers)
     pet = client.get("/api/v1/pet", headers=headers).json()
-    assert pet["xp"] == done["xp_awarded"]
+    assert pet["xp"] == done["xp_awarded"] + 20 + 10, "квест + достижение"
     assert pet["mood"] == "happy"
 
 
@@ -89,7 +89,7 @@ def test_xp_is_consistent_between_pet_and_dashboard(client):
     total = sum(complete_workout(client, headers)["xp_awarded"] for _ in range(2))
     pet = client.get("/api/v1/pet", headers=headers).json()
     summary = client.get("/api/v1/dashboard/summary", headers=headers).json()
-    assert pet["xp"] == summary["xp"] == total
+    assert pet["xp"] == summary["xp"] == total + 20 + 10, "награда daily-квеста + первое достижение"
     assert pet["streak_days"] == summary["current_streak_days"]
 
 

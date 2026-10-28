@@ -15,3 +15,29 @@ class PetOut(BaseModel):
     mood: str
     streak_days: int
     updated_at: datetime | None = None
+
+class QuestOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    code: str
+    title: str
+    description: str | None = None
+    period: str
+    progress: int
+    target: int
+    xp_reward: int
+    status: str
+    deadline: datetime | None = None
+    completed_at: datetime | None = None
+
+
+class AchievementOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    code: str
+    title: str
+    description: str | None = None
+    xp_reward: int
+    earned_at: datetime

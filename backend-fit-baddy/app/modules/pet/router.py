@@ -15,3 +15,16 @@ def get_pet(db: Session = Depends(get_db), current_user: User = Depends(get_curr
     db.commit()
     db.refresh(pet)
     return service.pet_out(pet)
+
+@router.get("/pet/quests", response_model=list[schemas.QuestOut])
+def get_quests(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    rows = service.list_user_quests(db, current_user.id)
+    db.commit()
+    return [service.quest_out(row) for row in rows]
+
+
+@router.get("/pet/achievements", response_model=list[schemas.AchievementOut])
+def get_achievements(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    rows = service.list_user_achievements(db, current_user.id)
+    db.commit()
+    return [service.achievement_out(row) for row in rows]
