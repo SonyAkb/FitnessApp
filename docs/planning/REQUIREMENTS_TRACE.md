@@ -97,7 +97,7 @@
 | US | Критерий | Модуль | Владелец | Статус | Где в коде | Тест | Комментарий |
 |---|---|---|---|---|---|---|---|
 | US-D1 | 1. Питомец на главном, уровень | pet | SonyAkb | ✅ | `HomeFragment` (`fox`, `level`, `xpBar`), `UiFormat.foxForMood` | вручную | |
-| US-D1 | 2. Уровни 1–50, +10 XP за тренировку, +5 за серию, прогресс-бар | pet | SonyAkb | 🟡 | `pet/service.py` `XP_PER_WORKOUT=25`, `XP_PER_LEVEL=100` | T:`test_xp_and_level_after_complete` | Противоречие П-7: числа XP не совпадают; бонуса за серию и потолка 50 нет |
+| US-D1 | 2. Уровни 1–50, +10 XP за тренировку, +5 за серию, прогресс-бар | pet | SonyAkb | ✅ | `pet/service.py`: `XP_PER_WORKOUT=25`, `STREAK_BONUS_XP=5`, `MAX_LEVEL=50`, пороги `level×100` (D-13) | T:`test_pet.py::test_streak_bonus_adds_5_xp_per_extra_day`, `test_cumulative_level_threshold_is_level_times_100`, `test_level_capped_at_max` | Реализовано по D-13 в PET-05; Android-прогресс-бар (`HomeFragment`) — AND-14 |
 | US-D1 | 3. Анимация получения опыта, сообщения питомца | pet | SonyAkb | 🟡 | `fox_idle_animation.xml`, кадры в `drawable-nodpi` | вручную | Анимация простоя есть; анимации XP и реплик нет |
 | US-D1 | 4. Статистика: уровень, опыт, тренировки, дни без пропусков, общее время | pet | SonyAkb | 🟡 | `PetOut` (xp, level, streak) | — | Нет общего времени/кол-ва тренировок в `/pet` |
 | US-D2 | 1. Фиксация пропуска, дни с последней тренировки | pet/schedule | SonyAkb | 🟡 | `POST /schedule/{id}/miss` → `WorkoutMissed`, `Pet.last_activity_date` | — | Пропуск только **вручную**; автоматического детектора нет |

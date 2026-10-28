@@ -7,7 +7,10 @@ from app.events import ACHIEVEMENT_EARNED, PET_LEVELED_UP, QUEST_COMPLETED, even
 from app.modules.pet import models
 
 XP_PER_WORKOUT = 25
-XP_PER_LEVEL = 100
+STREAK_BONUS_XP = 5
+# Накопительный порог уровня n -> n+1 равен n * XP_LEVEL_BASE (решение D-13).
+XP_LEVEL_BASE = 100
+MAX_LEVEL = 50
 ENERGY_GAIN = 15
 ENERGY_LOSS = 20
 ENERGY_MIN = 0
@@ -25,6 +28,71 @@ ACHIEVEMENT_CATALOG = [
     {"code": "three_in_row", "title": "3 тренировки подряд", "xp_reward": 30},
     {"code": "week_no_miss", "title": "Неделя без пропусков", "xp_reward": 40},
 ]
+
+
+def xp_threshold_for_level(level: int) -> int:
+    """Стоимость перехода уровня `level` -> `level + 1` (решение D-13): `level * 100`.
+
+    На максимальном уровне (`MAX_LEVEL`) переход не требуется — возвращаем 0.
+    """
+    if level >= MAX_LEVEL:
+        return 0
+    return level * XP_LEVEL_BASE
+
+
+def total_xp_for_level(level: int) -> int:
+    """Суммарный XP, необходимый для достижения уровня `level`.
+
+    Уровень 1 — это 0 XP; уровень n требует 100 + 200 + ... + (n-1)*100.
+    """
+    if level <= 1:
+        return 0
+    capped = min(level, MAX_LEVEL)
+    steps = capped - 1
+    return XP_LEVEL_BASE * steps * (steps + 1) // 2
+
+
+def level_for_xp(xp: int) -> int:
+    """Уровень по накопленному XP с потолком `MAX_LEVEL` (решение D-13)."""
+    level = 1
+    while level < MAX_LEVEL and xp >= total_xp_for_level(level + 1):
+        level += 1
+    return level
+
+
+def xp_to_next_level(level: int, xp: int) -> int:
+    """XP до следующего уровня по D-13: порог `level * 100`.
+
+    Порог — полный шаг перехода `level -> level + 1` (как в
+    `docs/API_CONTRACT.md`); на потолке (`MAX_LEVEL`) — 0. Параметр `xp`
+    оставлен для совместимости сигнатуры и не уменьшает шаг: излишек
+    предыдущего уровня не «переносится» в текущий прогресс-бар.
+    """
+    return xp_threshold_for_level(level)
+
+
+def _projected_streak(pet: models.Pet, when) -> int:
+    """Серия дней, которая будет у питомца после тренировки в день `when`.
+
+    Считается до мутации `pet`, чтобы `xp_for_workout` можно было вызывать
+    публично (WKT-09) без побочных эффектов.
+    """
+    if pet.last_activity_date == when:
+        return pet.streak_days
+    if pet.last_activity_date and pet.last_activity_date == when - timedelta(days=1):
+        return pet.streak_days + 1
+    return 1
+
+
+def xp_for_workout(pet: models.Pet, completed_at) -> int:
+    """XP за тренировку по решению D-13: `25 + 5 * (streak_days - 1)`.
+
+    Публичная функция: модуль тренировок (WKT-09) может запрашивать награду
+    заранее. Бонус считается по серии дня тренировки (без мутации питомца).
+    """
+    when = completed_at.date() if hasattr(completed_at, "date") else utc_now().date()
+    streak = _projected_streak(pet, when)
+    return XP_PER_WORKOUT + STREAK_BONUS_XP * (streak - 1)
 
 
 def get_pet(db: Session, user_id: int) -> models.Pet | None:
@@ -78,7 +146,7 @@ def ensure_user_quests(db: Session, user_id: int) -> list[models.UserQuest]:
 def award_xp(db: Session, pet: models.Pet, amount: int) -> models.Pet:
     old_level = pet.level
     pet.xp += amount
-    pet.level = pet.xp // XP_PER_LEVEL + 1
+    pet.level = level_for_xp(pet.xp)
     pet.updated_at = utc_now()
     if pet.level > old_level:
         pet.mood = "level_up"
@@ -93,18 +161,16 @@ def award_xp(db: Session, pet: models.Pet, amount: int) -> models.Pet:
 def apply_workout_completed(db: Session, user_id: int, completed_at) -> models.Pet:
     pet = get_or_create_pet(db, user_id)
     old_level = pet.level
-    pet.xp += XP_PER_WORKOUT
-    pet.level = pet.xp // XP_PER_LEVEL + 1
+    when = completed_at.date() if hasattr(completed_at, "date") else utc_now().date()
+    # Награда по D-13 считается до обновления серии (xp_for_workout публична, WKT-09).
+    gain = xp_for_workout(pet, completed_at)
+    pet.xp += gain
+    pet.level = level_for_xp(pet.xp)
     pet.energy = min(ENERGY_MAX, pet.energy + ENERGY_GAIN)
     pet.updated_at = utc_now()
 
-    when = completed_at.date() if hasattr(completed_at, "date") else utc_now().date()
-    if pet.last_activity_date == when:
-        pass
-    elif pet.last_activity_date and pet.last_activity_date == when - timedelta(days=1):
-        pet.streak_days += 1
-    else:
-        pet.streak_days = 1
+    streak = _projected_streak(pet, when)
+    pet.streak_days = streak
     pet.last_activity_date = when
 
     if pet.level > old_level:
@@ -275,14 +341,11 @@ def apply_workout_missed(db: Session, user_id: int) -> models.Pet:
 def pet_out(pet: models.Pet):
     from app.modules.pet.schemas import PetOut
 
-    remaining = XP_PER_LEVEL - (pet.xp % XP_PER_LEVEL)
-    if remaining == 0:
-        remaining = XP_PER_LEVEL
     return PetOut(
         id=pet.id,
         name=pet.name,
         xp=pet.xp,
-        xp_to_next_level=remaining,
+        xp_to_next_level=xp_to_next_level(pet.level, pet.xp),
         level=pet.level,
         energy=pet.energy,
         mood=pet.mood,

@@ -31,9 +31,79 @@ def test_level_up_when_threshold_reached(client, db_session):
     _, user = register_user(client)
     for day in range(1, 5):
         pet = pet_service.apply_workout_completed(db_session, user["id"], at(day))
-    assert pet.xp == 4 * pet_service.XP_PER_WORKOUT
+    # D-13: 25 + 30 + 35 + 40 = 130 XP; порог 1->2 равен 1*100 (накопительный).
+    assert pet.xp == 130
     assert pet.level == 2
     assert pet.mood == "level_up"
+
+
+def test_streak_bonus_adds_5_xp_per_extra_day(client, db_session):
+    _, user = register_user(client)
+    pet = pet_service.apply_workout_completed(db_session, user["id"], at(1))
+    assert pet.xp == pet_service.XP_PER_WORKOUT == 25
+    assert pet.streak_days == 1
+
+    # Второй день серии: бонус +5*(2-1) => 30 XP.
+    before = pet.xp
+    pet = pet_service.apply_workout_completed(db_session, user["id"], at(2))
+    assert pet.xp - before == 30
+    assert pet.streak_days == 2
+
+    # Повторная тренировка в тот же день серию не увеличивает.
+    before = pet.xp
+    pet = pet_service.apply_workout_completed(db_session, user["id"], at(2))
+    assert pet.xp - before == 30
+
+    # Разрыв в днях обнуляет серию -> снова базовые 25 XP.
+    before = pet.xp
+    pet = pet_service.apply_workout_completed(db_session, user["id"], at(9))
+    assert pet.xp - before == pet_service.XP_PER_WORKOUT
+    assert pet.streak_days == 1
+
+
+def test_xp_for_workout_is_public_and_pure(client, db_session):
+    """`xp_for_workout(pet, completed_at)` — публичная функция без мутации (WKT-09)."""
+    _, user = register_user(client)
+    pet = pet_service.apply_workout_completed(db_session, user["id"], at(1))
+    xp_before, streak_before = pet.xp, pet.streak_days
+
+    assert pet_service.xp_for_workout(pet, at(1)) == 25, "тот же день — серия растёт на 1"
+    assert pet_service.xp_for_workout(pet, at(2)) == 30, "следующий день серии"
+    assert pet_service.xp_for_workout(pet, at(7)) == 25, "разрыв серии"
+    assert (pet.xp, pet.streak_days) == (xp_before, streak_before), "без побочных эффектов"
+
+
+def test_cumulative_level_threshold_is_level_times_100(client, db_session):
+    """Порог уровня n -> n+1 = n*100, накопительно (D-13)."""
+    assert pet_service.xp_threshold_for_level(1) == 100
+    assert pet_service.xp_threshold_for_level(2) == 200
+    assert pet_service.total_xp_for_level(3) == 300, "100 + 200"
+
+    assert pet_service.level_for_xp(99) == 1
+    assert pet_service.level_for_xp(100) == 2
+    assert pet_service.level_for_xp(299) == 2
+    assert pet_service.level_for_xp(300) == 3
+    assert pet_service.xp_to_next_level(1, 55) == 100
+    # Порог уровня n -> n+1 = n*100 — полный шаг; излишек прошлого уровня не вычитается.
+    assert pet_service.xp_to_next_level(2, 130) == 200
+    assert pet_service.xp_to_next_level(2, 100) == 200
+
+
+def test_level_capped_at_max(client, db_session):
+    """Максимум MAX_LEVEL = 50 уровней; дальше XP копится, уровень не растёт."""
+    _, user = register_user(client)
+    pet = pet_service.get_or_create_pet(db_session, user["id"])
+    pet.xp = pet_service.total_xp_for_level(pet_service.MAX_LEVEL)
+    pet.level = pet_service.level_for_xp(pet.xp)
+    assert pet.level == pet_service.MAX_LEVEL == 50
+
+    out = pet_service.pet_out(pet)
+    assert out.xp_to_next_level == 0, "на потолке до следующего уровня ничего не нужно"
+
+    before_level = pet.level
+    pet_service.award_xp(db_session, pet, 500)
+    assert pet.level == before_level, "потолок не пробивается наградами квестов"
+    assert pet.xp > out.xp, "XP продолжает накапливаться"
 
 
 def test_streak_counts_consecutive_days_only(client, db_session):
@@ -71,7 +141,9 @@ def test_xp_to_next_level(client, db_session):
     _, user = register_user(client)
     pet = pet_service.apply_workout_completed(db_session, user["id"], at(1))
     out = pet_service.pet_out(pet)
-    assert out.xp_to_next_level == pet_service.XP_PER_LEVEL - pet_service.XP_PER_WORKOUT
+    # Порог 1->2 = level*100 = 100 (решение D-13).
+    assert pet.xp == pet_service.XP_PER_WORKOUT
+    assert out.xp_to_next_level == 100
 
 
 def test_pet_reacts_to_completed_workout_via_api(client):
