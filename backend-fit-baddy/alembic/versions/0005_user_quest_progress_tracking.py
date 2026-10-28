@@ -1,7 +1,7 @@
 """add last_counted_at and completions columns to user_quests (PET-08)
 
-Revision ID: 0003
-Revises: 0002
+Revision ID: 0005
+Revises: 0004
 Create Date: 2026-10-28 00:00:00.000000
 
 """
@@ -11,8 +11,8 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision: str = '0003'
-down_revision: Union[str, None] = '0002'
+revision: str = '0005'
+down_revision: Union[str, None] = '0004'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
