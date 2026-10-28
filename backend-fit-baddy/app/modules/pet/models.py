@@ -13,7 +13,7 @@ class Pet(Base):
     xp = Column(Integer, nullable=False, default=0)
     level = Column(Integer, nullable=False, default=1)
     energy = Column(Integer, nullable=False, default=50)
-    mood = Column(String, nullable=False, default="idle") 
+    mood = Column(String, nullable=False, default="idle")
     streak_days = Column(Integer, nullable=False, default=0)
     last_activity_date = Column(Date, nullable=True)
     updated_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
@@ -22,9 +22,9 @@ class Quest(Base):
     __tablename__ = "quests"
 
     id = Column(Integer, primary_key=True, index=True)
-    code = Column(String, nullable=False, unique=True)  
+    code = Column(String, nullable=False, unique=True)
     title = Column(String, nullable=False)
-    period = Column(String, nullable=False)  
+    period = Column(String, nullable=False)
     target = Column(Integer, nullable=False, default=1)
     xp_reward = Column(Integer, nullable=False, default=0)
 
@@ -39,6 +39,8 @@ class UserQuest(Base):
     period_start = Column(DateTime(timezone=True), nullable=True)
     completed_at = Column(DateTime(timezone=True), nullable=True)
     notified = Column(Boolean, nullable=False, default=False)
+    last_counted_at = Column(DateTime(timezone=True), nullable=True)
+    completions = Column(Integer, nullable=False, default=0, server_default="0")
 
 
 class Achievement(Base):
@@ -47,7 +49,7 @@ class Achievement(Base):
     __tablename__ = "achievements"
 
     id = Column(Integer, primary_key=True, index=True)
-    code = Column(String, nullable=False, unique=True)  
+    code = Column(String, nullable=False, unique=True)
     title = Column(String, nullable=False)
     xp_reward = Column(Integer, nullable=False, default=0)
 

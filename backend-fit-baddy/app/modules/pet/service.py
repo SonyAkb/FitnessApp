@@ -132,7 +132,11 @@ def period_start(when: datetime, period: str) -> datetime:
     return datetime(start.year, start.month, start.day, tzinfo=timezone.utc)
 
 
-def _reset_if_new_period(uq: models.UserQuest, quest: models.Quest, now: datetime) -> None:
+def _reset_if_new_period(uq: models.UserQuest, quest: models.Quest, now: datetime) -> bool:
+    """Сбрасывает прогресс квеста при переходе в новый период.
+
+    Возвращает True, если сброс произошёл (начался новый период).
+    """
     start = period_start(now, quest.period)
     stored = _as_utc(uq.period_start) if uq.period_start is not None else None
     if stored is None or stored != start:
@@ -140,6 +144,9 @@ def _reset_if_new_period(uq: models.UserQuest, quest: models.Quest, now: datetim
         uq.progress = 0
         uq.completed_at = None
         uq.notified = False
+        uq.last_counted_at = None
+        return True
+    return False
 
 
 def apply_quest_progress(db: Session, user_id: int, when: datetime) -> list[models.Quest]:
@@ -155,16 +162,25 @@ def apply_quest_progress(db: Session, user_id: int, when: datetime) -> list[mode
     )
     finished: list[models.Quest] = []
     for uq, quest in rows:
-        _reset_if_new_period(uq, quest, now)
+        was_reset = _reset_if_new_period(uq, quest, now)
         if uq.completed_at is not None:
             continue
+        # Одно и то же событие не засчитывается дважды: если метка последнего
+        # учёта совпадает с текущим моментом — это повторный вызов за ту же
+        # тренировку, пропускаем инкремент.
+        counted = _as_utc(uq.last_counted_at) if uq.last_counted_at is not None else None
+        if counted is not None and counted == now:
+            continue
         uq.progress = min(quest.target, uq.progress + 1)
+        uq.last_counted_at = now
         if uq.progress >= quest.target:
             uq.completed_at = now
             award_xp(db, pet, quest.xp_reward)
-            
             uq.notified = True
-            finished.append(quest)
+            first_completion = uq.completions == 0
+            uq.completions += 1
+            if first_completion:
+                finished.append(quest)
             event_bus.publish(
                 QUEST_COMPLETED,
                 {
