@@ -43,3 +43,21 @@ class AchievementOut(BaseModel):
     description: str | None = None
     xp_reward: int
     earned_at: datetime
+
+
+class PetEventOut(BaseModel):
+    """Событие журнала `pet_events` (PET-09)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    type: str
+    amount: int
+    xp_total: int
+    level: int
+    mood: str | None = None
+    created_at: datetime
+
+
+class PetStatsOut(BaseModel):
+    weekly_xp: int

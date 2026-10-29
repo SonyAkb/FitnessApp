@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
+from sqlalchemy.sql import func
 
 from app.core.clock import utc_now
 from app.events import ACHIEVEMENT_EARNED, PET_LEVELED_UP, PET_RETURNED, QUEST_COMPLETED, event_bus
@@ -23,6 +24,41 @@ MOOD_SAD_DAYS = 3
 MOOD_SLEEPING_DAYS = 14
 # Бонус возвращения после 3+ дней без активности (PET-06).
 RETURN_BONUS_XP = 10
+
+# Типы событий журнала pet_events (PET-09).
+EVENT_XP = "xp"
+EVENT_LEVEL_UP = "level_up"
+EVENT_MOOD = "mood"
+EVENT_RETURN_BONUS = "return_bonus"
+
+
+def record_event(
+    db: Session,
+    pet: models.Pet,
+    type_: str,
+    amount: int = 0,
+    mood: str | None = None,
+) -> models.PetEvent:
+    """Пишет строку в журнал `pet_events` (PET-09).
+
+    Вызывается при каждом изменении питомца: начисление XP, повышение уровня,
+    смена настроения, бонус возвращения. Только `db.flush()` — коммит делает
+    вызывающий код (router/handler), как и остальные изменения в модуле.
+    """
+    event = models.PetEvent(
+        pet_id=pet.id,
+        user_id=pet.user_id,
+        type=type_,
+        amount=amount,
+        xp_total=pet.xp,
+        level=pet.level,
+        mood=mood if mood is not None else pet.mood,
+        created_at=utc_now(),
+    )
+    db.add(event)
+    db.flush()
+    return event
+
 
 QUEST_CATALOG = [
     {"code": "one_workout_today", "title": "1 тренировка сегодня",
@@ -144,6 +180,7 @@ def refresh_mood(db: Session, pet: models.Pet) -> str:
         pet.was_sleeping = slept
         pet.mood = new_mood
         pet.updated_at = utc_now()
+        record_event(db, pet, EVENT_MOOD, mood=new_mood)
         db.commit()
     return pet.mood
 
@@ -158,7 +195,7 @@ def handle_return_bonus(db: Session, pet: models.Pet, when) -> int:
     if gap < MOOD_SAD_DAYS and not getattr(pet, "was_sleeping", False):
         return 0
     pet._return_bonus_awarded = True
-    award_xp(db, pet, RETURN_BONUS_XP)
+    award_xp(db, pet, RETURN_BONUS_XP, event_type=EVENT_RETURN_BONUS)
     event_bus.publish(
         PET_RETURNED,
         {"user_id": pet.user_id, "days_absent": gap, "xp_bonus": RETURN_BONUS_XP, "name": pet.name},
@@ -211,13 +248,16 @@ def ensure_user_quests(db: Session, user_id: int) -> list[models.UserQuest]:
     return db.query(models.UserQuest).filter(models.UserQuest.user_id == user_id).all()
 
 
-def award_xp(db: Session, pet: models.Pet, amount: int) -> models.Pet:
+def award_xp(db: Session, pet: models.Pet, amount: int, event_type: str = EVENT_XP) -> models.Pet:
     old_level = pet.level
     pet.xp += amount
     pet.level = level_for_xp(pet.xp)
     pet.updated_at = utc_now()
+    # Событие XP/return_bonus пишем до уровня: amount = начисленный XP (PET-09).
+    record_event(db, pet, event_type, amount=amount)
     if pet.level > old_level:
         pet.mood = "level_up"
+        record_event(db, pet, EVENT_LEVEL_UP, amount=pet.level)
         event_bus.publish(
             PET_LEVELED_UP,
             {"user_id": pet.user_id, "level": pet.level, "name": pet.name},
@@ -246,6 +286,8 @@ def apply_workout_completed(db: Session, user_id: int, completed_at) -> models.P
     if new_level > pet.level:
         pet.level = new_level
         pet.mood = "level_up"
+        record_event(db, pet, EVENT_XP, amount=gain)
+        record_event(db, pet, EVENT_LEVEL_UP, amount=new_level)
         event_bus.publish(
             PET_LEVELED_UP,
             {"user_id": user_id, "level": pet.level, "name": pet.name},
@@ -255,9 +297,12 @@ def apply_workout_completed(db: Session, user_id: int, completed_at) -> models.P
         # Уровень дал бонус возвращения (начислен в award_xp внутри handle_return_bonus).
         pet.level = new_level
         pet.mood = "level_up"
+        record_event(db, pet, EVENT_XP, amount=gain)
+        record_event(db, pet, EVENT_LEVEL_UP, amount=new_level)
     else:
         pet.level = new_level
         pet.mood = "happy"
+        record_event(db, pet, EVENT_XP, amount=gain)
     db.flush()
     return pet
 
@@ -410,8 +455,38 @@ def apply_workout_missed(db: Session, user_id: int) -> models.Pet:
     pet.mood = "sad"
     pet.streak_days = 0
     pet.updated_at = utc_now()
+    record_event(db, pet, EVENT_MOOD, mood="sad")
     db.flush()
     return pet
+
+
+def weekly_xp(db: Session, user_id: int, now: datetime | None = None) -> int:
+    """Сумма XP за последние 7 дней по журналу `pet_events` (PET-09).
+
+    Считаются события `xp` и `return_bonus` — «сколько XP за неделю» в статистике.
+    """
+    since = (now or utc_now()) - timedelta(days=7)
+    total = (
+        db.query(func.coalesce(func.sum(models.PetEvent.amount), 0))
+        .filter(
+            models.PetEvent.user_id == user_id,
+            models.PetEvent.type.in_([EVENT_XP, EVENT_RETURN_BONUS]),
+            models.PetEvent.created_at >= since,
+        )
+        .scalar()
+    )
+    return int(total)
+
+
+def list_events(db: Session, user_id: int, limit: int = 50) -> list[models.PetEvent]:
+    """Последние события питомца (для отладки правил PET-05/PET-06)."""
+    return (
+        db.query(models.PetEvent)
+        .filter(models.PetEvent.user_id == user_id)
+        .order_by(models.PetEvent.created_at.desc(), models.PetEvent.id.desc())
+        .limit(limit)
+        .all()
+    )
 
 
 def pet_out(pet: models.Pet):

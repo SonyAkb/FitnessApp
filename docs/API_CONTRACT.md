@@ -448,6 +448,41 @@ JWT. Только полученные достижения, новые свер
     "earned_at": "2026-10-27T18:40:05Z"
   }
 ]
+```
+
+### `GET /api/v1/pet/events`
+
+JWT. История событий питомца (PET-09): `xp`, `level_up`, `mood`, `return_bonus`. Пишется при каждом изменении питомца — для статистики и отладки правил. Новые события сверху.
+
+Query: `limit` (default 50, максимум 200).
+
+**Response `200`**
+
+```json
+[
+  {
+    "id": 3,
+    "type": "xp",
+    "amount": 25,
+    "xp_total": 25,
+    "level": 1,
+    "mood": "happy",
+    "created_at": "2026-10-29T18:40:05Z"
+  }
+]
+```
+
+### `GET /api/v1/pet/stats`
+
+JWT. Статистика по журналу `pet_events` (PET-09).
+
+**Response `200`**
+
+```json
+{
+  "weekly_xp": 105
+}
+```
 
 ---
 
@@ -745,6 +780,7 @@ Checkout идёт через `PaymentProvider`. Sandbox-провайдер (MVP)
 | `/pet` | 3 Питомец |
 | `/pet/quests` | 3 Питомец |
 | `/pet/achievements` | 3 Питомец |
+| `/pet/events`, `/pet/stats` | 3 Питомец |
 | `/dashboard`, `/notifications` | 4 Дашборд и уведомления |
 | `/devices`, `/telemetry`, `/ai`, `/subscription` | 5 ИИ, устройства, подписка |
 
