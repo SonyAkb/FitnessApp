@@ -97,7 +97,8 @@ erDiagram
     int xp
     int level
     int energy "0..100"
-    string mood "idle | happy | sad | level_up | neutral"
+    string mood "idle | happy | sad | level_up | neutral | sleeping"
+    boolean was_sleeping "PET-06: питомец спал 14+ дней (приветствие при пробуждении)"
     int streak_days
     date last_activity_date
     datetime updated_at
@@ -134,7 +135,21 @@ erDiagram
     int achievement_id FK
     datetime earned_at
   }
-  
+
+  pets ||--o{ pet_events : "logs"
+  users ||--o{ pet_events : "has"
+  pet_events {
+    int id PK
+    int pet_id FK
+    int user_id FK
+    string type "xp | level_up | mood | return_bonus"
+    int amount "XP для xp/return_bonus; новый уровень для level_up"
+    int xp_total "накопленный XP после события"
+    int level "уровень после события"
+    string mood "настроение после события, nullable"
+    datetime created_at "индекс: статистика за неделю"
+  }
+
   notifications {
     int id PK
     int user_id FK
@@ -198,7 +213,7 @@ erDiagram
 |---|---|---|
 | `users`, `profiles`, `scheduled_workouts` | `auth` | @NastyaZhilinaRis2 |
 | `workout_plans`, `workout_plan_exercises`, `workout_sessions` | `workouts` | @Hupubu |
-| `pets`, `quests`, `user_quests`, `achievements`, `user_achievements` | `pet` | @SonyAkb |
+| `pets`, `pet_events`, `quests`, `user_quests`, `achievements`, `user_achievements` | `pet` | @SonyAkb |
 | `notifications` | `notifications` | @Ananasic07 |
 | `devices`, `telemetry_points` | `devices` | @MouseViolin |
 | `ai_recommendations` | `ai` | @MouseViolin |
@@ -207,12 +222,12 @@ erDiagram
 ## 2. Планируемые таблицы (нужны для закрытия требований)
 
 Не реализованы. Каждая — отдельная задача в `docs/planning/issues/`.
+(`pet_events` из этого списка реализована в PET-09, миграция 0005 — см. §1.)
 
 ```mermaid
 erDiagram
   workout_sessions ||--o{ workout_session_exercises : "includes"
   workout_session_exercises ||--o{ exercise_sets : "logged as"
-  users ||--o{ pet_events : "history of pet"
 
   workout_session_exercises {
     int id PK
@@ -233,20 +248,11 @@ erDiagram
     string status "done | skipped"
     datetime completed_at
   }
-  pet_events {
-    int id PK
-    int user_id FK
-    string kind "xp | level_up | mood | return_bonus"
-    int xp_delta
-    string payload
-    datetime created_at
-  }
-
 ```
 
 Также планируется:
 - `profiles.goal` / `profiles.fitness_level` — ограничить значениями (`weight_loss | muscle_gain | endurance | health`; `beginner | intermediate | advanced`, по умолчанию `beginner`).
-- `pets.mood` — добавить `sleeping` (решение D-14).
+- `pets.mood` — добавить `sleeping` (решение D-14). **Реализовано (PET-06, миграция 0004):** `sleeping` включён в домен, добавлен флаг `pets.was_sleeping`.
 - `notification_settings` (user_id, reminders_enabled, reminder_offsets, motivational_enabled) — для US-F1/F2.
 - `payments.status` — `pending | succeeded | failed`, `subscriptions.current_period_end`.
 
@@ -271,3 +277,5 @@ erDiagram
 - Поиск по каталогу (`GET /api/v1/workouts/exercises`) фильтрует по `q` в Python через `casefold()`, так как `LIKE`/`lower()` в SQLite не понимают кириллицу.
 
 Миграция `0002_quest_achievement_tables` создаёт таблицы квестов и достижений (§1) и заполняет справочники предустановленными записями (2 квеста, 3 достижения); `downgrade` удаляет таблицы вместе с seed-строками.
+
+Миграция `0005_pet_events` создаёт журнал событий питомца `pet_events` (§1, PET-09): `id`, `pet_id` FK, `user_id` FK, `type` (`xp | level_up | mood | return_bonus`), `amount`, `xp_total`, `level`, `mood`, `created_at`; индексы на `pet_id`, `user_id`, `type`, `created_at` — под статистику «сколько XP за неделю» и отладку правил; `downgrade` удаляет таблицу.

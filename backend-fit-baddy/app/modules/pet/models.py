@@ -14,9 +14,33 @@ class Pet(Base):
     level = Column(Integer, nullable=False, default=1)
     energy = Column(Integer, nullable=False, default=50)
     mood = Column(String, nullable=False, default="idle")
+    was_sleeping = Column(Boolean, nullable=False, default=False, server_default="0")
     streak_days = Column(Integer, nullable=False, default=0)
     last_activity_date = Column(Date, nullable=True)
     updated_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+
+class PetEvent(Base):
+    """История событий питомца (PET-09): xp, level_up, mood, return_bonus.
+
+    Журнал пишется при каждом изменении питомца — для статистики
+    «сколько XP за неделю» и отладки правил (US-D1).
+    """
+
+    __tablename__ = "pet_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    pet_id = Column(Integer, ForeignKey("pets.id"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    # Тип события: xp | level_up | mood | return_bonus.
+    type = Column(String, nullable=False, index=True)
+    # Величина изменения (XP для xp/return_bonus; новый уровень для level_up).
+    amount = Column(Integer, nullable=False, default=0, server_default="0")
+    # Состояние после события: накопленный XP / уровень / настроение.
+    xp_total = Column(Integer, nullable=False, default=0, server_default="0")
+    level = Column(Integer, nullable=False, default=1, server_default="1")
+    mood = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utc_now, index=True)
+
 
 class Quest(Base):
     __tablename__ = "quests"

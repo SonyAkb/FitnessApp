@@ -97,14 +97,14 @@
 | US | Критерий | Модуль | Владелец | Статус | Где в коде | Тест | Комментарий |
 |---|---|---|---|---|---|---|---|
 | US-D1 | 1. Питомец на главном, уровень | pet | SonyAkb | ✅ | `HomeFragment` (`fox`, `level`, `xpBar`), `UiFormat.foxForMood` | вручную | |
-| US-D1 | 2. Уровни 1–50, +10 XP за тренировку, +5 за серию, прогресс-бар | pet | SonyAkb | 🟡 | `pet/service.py` `XP_PER_WORKOUT=25`, `XP_PER_LEVEL=100` | T:`test_xp_and_level_after_complete` | Противоречие П-7: числа XP не совпадают; бонуса за серию и потолка 50 нет |
+| US-D1 | 2. Уровни 1–50, +10 XP за тренировку, +5 за серию, прогресс-бар | pet | SonyAkb | ✅ | `pet/service.py`: `XP_PER_WORKOUT=25`, `STREAK_BONUS_XP=5`, `MAX_LEVEL=50`, пороги `level×100` (D-13) | T:`test_pet.py::test_streak_bonus_adds_5_xp_per_extra_day`, `test_cumulative_level_threshold_is_level_times_100`, `test_level_capped_at_max` | Реализовано по D-13 в PET-05; Android-прогресс-бар (`HomeFragment`) — AND-14 |
 | US-D1 | 3. Анимация получения опыта, сообщения питомца | pet | SonyAkb | 🟡 | `fox_idle_animation.xml`, кадры в `drawable-nodpi` | вручную | Анимация простоя есть; анимации XP и реплик нет |
 | US-D1 | 4. Статистика: уровень, опыт, тренировки, дни без пропусков, общее время | pet | SonyAkb | 🟡 | `PetOut` (xp, level, streak) | — | Нет общего времени/кол-ва тренировок в `/pet` |
 | US-D2 | 1. Фиксация пропуска, дни с последней тренировки | pet/schedule | SonyAkb | 🟡 | `POST /schedule/{id}/miss` → `WorkoutMissed`, `Pet.last_activity_date` | — | Пропуск только **вручную**; автоматического детектора нет |
-| US-D2 | 2. 7 дней → грустит, 14+ → спит | pet | SonyAkb | ❌ | `apply_workout_missed` → сразу `sad` | — | Противоречие П-3; состояния `sleeping` нет |
+| US-D2 | 2. 7 дней → грустит, 14+ → спит | pet | SonyAkb | ✅ | `refresh_mood`/`mood_for_days_without_training` (D-14: 1–2 neutral, 3–13 sad, 14+ sleeping) при `GET /pet` и `workout_missed` | `tests/test_pet_mood.py::test_refresh_mood_at_each_threshold`, `test_get_pet_endpoint_recomputes_mood` | Фоновых задач нет — расчёт при запросе (PET-06) |
 | US-D2 | 3. Сообщения на 1/2/3/5/7+ день | pet/notifications | SonyAkb | ❌ | — | — | |
 | US-D2 | 4. Push на 2-й и 5-й день | notifications | Ananasic07 | ❌ | — | — | Противоречие П-3, П-12 (push = Won't) |
-| US-D2 | 5. Возвращение: «Рад тебя видеть!», бонус XP | pet | SonyAkb | ❌ | — | — | |
+| US-D2 | 5. Возвращение: «Рад тебя видеть!», бонус XP | pet | SonyAkb | ✅ | `handle_return_bonus`: +10 XP, событие `pet_returned` → уведомление «Рад тебя видеть!» | `tests/test_pet_mood.py::test_return_after_3_days_awards_bonus_and_event`, `test_return_notification_is_created` | Разрыв >= 3 дня или пробуждение из `sleeping` (флаг `was_sleeping`) (PET-06) |
 | US-D3 | 1. Список квестов: условие, прогресс, награда, срок | pet | SonyAkb | ✅ | `GET /pet/quests`, `pet/service.quest_out` | T:`test_quests_endpoint_shape_and_auth` | |
 | US-D3 | 2. Типы: ежедневные/еженедельные/достижения | pet | SonyAkb | ✅ | `quests.period=daily\|weekly`, `achievements` | T:`test_daily_quest_completes_on_first_workout_and_awards_xp`, `test_weekly_quest_needs_three_workouts` | |
 | US-D3 | 3. Автообновление прогресса, уведомление | pet | SonyAkb | ✅ | `pet/handlers.on_workout_completed` → `apply_quest_progress`, `quest_completed` → notifications | T:`test_full_event_path_updates_quest_progress`, `test_quest_completion_creates_notification` | |

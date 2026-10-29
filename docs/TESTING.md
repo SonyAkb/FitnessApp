@@ -13,7 +13,7 @@
 
 **Уровни.**
 
-- *Unit* — функции сервисов на реальной сессии БД, без HTTP: правила питомца (`test_pet.py`), `can_use` и провайдер оплаты (`test_ai_subscription.py`), шина событий (`test_events.py`), контракт `TelemetryDTO` (`test_devices.py`).
+- *Unit* — функции сервисов на реальной сессии БД, без HTTP: правила питомца (`test_pet.py`), журнал событий питомца и `weekly_xp` (`test_pet_events.py`), `can_use` и провайдер оплаты (`test_ai_subscription.py`), шина событий (`test_events.py`), контракт `TelemetryDTO` (`test_devices.py`).
 - *API / интеграционные* — запросы через `TestClient` к приложению целиком, с настоящей БД и обработчиками событий: остальные тесты.
 - *Сквозной* — `test_api.py::test_full_demo_path`.
 
@@ -35,6 +35,8 @@ docker stop fq-test-pg
 | `test_workouts.py` | workouts — @Hupubu | план без упражнений, обязательные поля, повторный старт, длительность, чужая сессия, пагинация истории |
 | `test_exercises_catalog.py` | workouts — @Hupubu | каталог упражнений (WKT-06): список и сортировка, поиск по подстроке без учёта регистра (кириллица), фильтр по группе мышц и их сочетание, пустой результат, неверная группа → 422, доступ без токена → 401, `exercise_id` в плане (создание и PATCH, неизвестный id → 422, свободный текст без id) |
 | `test_pet_quests.py` | pet — @SonyAkb | каждый квест (daily, weekly, повторный complete в тот же день, сброс daily/weekly), каждое достижение (+ запрет дублей), награды XP, оба GET-эндпоинта и 401, уведомление о завершении квеста |
+| `test_pet_events.py` | pet — @SonyAkb | журнал `pet_events` (PET-09): завершение тренировки пишет событие `xp`, `level_up` на пороге, `mood` при смене настроения, `return_bonus`; статистика `weekly_xp`; `GET /pet/events` и `GET /pet/stats` (в т.ч. путь через API) |
+| `test_pet.py` | pet — @SonyAkb | правила XP по D-13: базовые 25 за тренировку, бонус серии +5×(streak−1), накопительный порог `level×100`, потолок `MAX_LEVEL=50`, `xp_to_next_level`, чистота публичной `xp_for_workout` (WKT-09), стрик/пропуск/энергия |
 | `test_notifications.py` | notifications, dashboard — @Ananasic07 | уведомления по событиям, порядок, прочитанные, `unread_only`, `limit`, чужие уведомления, поля сводки |
 | `test_devices.py` | devices — @MouseViolin | контракт `TelemetryDTO` (одинаковый для simulator и raspberry_pi), валидация, 404 без точек, повторная/чужая регистрация устройства, фильтр истории, WebSocket |
 | `test_ai_subscription.py` | ai, subscription — @MouseViolin | Free по умолчанию, ИИ только на Pro, checkout, подпись webhook, идемпотентность, неуспешная оплата, `can_use` |

@@ -91,8 +91,12 @@ public class HomeFragment extends Fragment {
         }
         String name = pet.name == null ? "Fox" : pet.name;
         binding.foxName.setText(name);
-        binding.fox.setImageResource(UiFormat.foxAnimationForMood(pet.mood));
-        startFoxAnimation();
+        if ("sleeping".equalsIgnoreCase(pet.mood)) {
+            binding.fox.setImageResource(UiFormat.foxForMood(pet.mood));
+        } else {
+            binding.fox.setImageResource(UiFormat.foxAnimationForMood(pet.mood));
+            startFoxAnimation();
+        }
         binding.mood.setText(UiFormat.moodLine(pet.mood));
         int xp = pet.xp == null ? 0 : pet.xp;
         int level = pet.level == null ? 1 : pet.level;

@@ -1,17 +1,64 @@
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
+from sqlalchemy.sql import func
 
 from app.core.clock import utc_now
-from app.events import ACHIEVEMENT_EARNED, PET_LEVELED_UP, QUEST_COMPLETED, event_bus
+from app.events import ACHIEVEMENT_EARNED, PET_LEVELED_UP, PET_RETURNED, QUEST_COMPLETED, event_bus
 from app.modules.pet import models
 
 XP_PER_WORKOUT = 25
-XP_PER_LEVEL = 100
+STREAK_BONUS_XP = 5
+# Накопительный порог уровня n -> n+1 равен n * XP_LEVEL_BASE (решение D-13).
+XP_LEVEL_BASE = 100
+MAX_LEVEL = 50
 ENERGY_GAIN = 15
 ENERGY_LOSS = 20
 ENERGY_MIN = 0
 ENERGY_MAX = 100
+
+# Настроение по дням без тренировки (решение D-14, PET-06):
+# 0 дней — happy/idle (не перебиваем), 1–2 — neutral, 3–13 — sad, 14+ — sleeping.
+MOOD_NEUTRAL_DAYS = 1
+MOOD_SAD_DAYS = 3
+MOOD_SLEEPING_DAYS = 14
+# Бонус возвращения после 3+ дней без активности (PET-06).
+RETURN_BONUS_XP = 10
+
+# Типы событий журнала pet_events (PET-09).
+EVENT_XP = "xp"
+EVENT_LEVEL_UP = "level_up"
+EVENT_MOOD = "mood"
+EVENT_RETURN_BONUS = "return_bonus"
+
+
+def record_event(
+    db: Session,
+    pet: models.Pet,
+    type_: str,
+    amount: int = 0,
+    mood: str | None = None,
+) -> models.PetEvent:
+    """Пишет строку в журнал `pet_events` (PET-09).
+
+    Вызывается при каждом изменении питомца: начисление XP, повышение уровня,
+    смена настроения, бонус возвращения. Только `db.flush()` — коммит делает
+    вызывающий код (router/handler), как и остальные изменения в модуле.
+    """
+    event = models.PetEvent(
+        pet_id=pet.id,
+        user_id=pet.user_id,
+        type=type_,
+        amount=amount,
+        xp_total=pet.xp,
+        level=pet.level,
+        mood=mood if mood is not None else pet.mood,
+        created_at=utc_now(),
+    )
+    db.add(event)
+    db.flush()
+    return event
+
 
 QUEST_CATALOG = [
     {"code": "one_workout_today", "title": "1 тренировка сегодня",
@@ -27,8 +74,134 @@ ACHIEVEMENT_CATALOG = [
 ]
 
 
+def xp_threshold_for_level(level: int) -> int:
+    """Стоимость перехода уровня `level` -> `level + 1` (решение D-13): `level * 100`.
+
+    На максимальном уровне (`MAX_LEVEL`) переход не требуется — возвращаем 0.
+    """
+    if level >= MAX_LEVEL:
+        return 0
+    return level * XP_LEVEL_BASE
+
+
+def total_xp_for_level(level: int) -> int:
+    """Суммарный XP, необходимый для достижения уровня `level`.
+
+    Уровень 1 — это 0 XP; уровень n требует 100 + 200 + ... + (n-1)*100.
+    """
+    if level <= 1:
+        return 0
+    capped = min(level, MAX_LEVEL)
+    steps = capped - 1
+    return XP_LEVEL_BASE * steps * (steps + 1) // 2
+
+
+def level_for_xp(xp: int) -> int:
+    """Уровень по накопленному XP с потолком `MAX_LEVEL` (решение D-13)."""
+    level = 1
+    while level < MAX_LEVEL and xp >= total_xp_for_level(level + 1):
+        level += 1
+    return level
+
+
+def xp_to_next_level(level: int, xp: int) -> int:
+    """XP до следующего уровня по D-13: порог `level * 100`.
+
+    Порог — полный шаг перехода `level -> level + 1` (как в
+    `docs/API_CONTRACT.md`); на потолке (`MAX_LEVEL`) — 0. Параметр `xp`
+    оставлен для совместимости сигнатуры и не уменьшает шаг: излишек
+    предыдущего уровня не «переносится» в текущий прогресс-бар.
+    """
+    return xp_threshold_for_level(level)
+
+
+def _projected_streak(pet: models.Pet, when) -> int:
+    """Серия дней, которая будет у питомца после тренировки в день `when`.
+
+    Считается до мутации `pet`, чтобы `xp_for_workout` можно было вызывать
+    публично (WKT-09) без побочных эффектов.
+    """
+    if pet.last_activity_date == when:
+        return pet.streak_days
+    if pet.last_activity_date and pet.last_activity_date == when - timedelta(days=1):
+        return pet.streak_days + 1
+    return 1
+
+
+def xp_for_workout(pet: models.Pet, completed_at) -> int:
+    """XP за тренировку по решению D-13: `25 + 5 * (streak_days - 1)`.
+
+    Публичная функция: модуль тренировок (WKT-09) может запрашивать награду
+    заранее. Бонус считается по серии дня тренировки (без мутации питомца).
+    """
+    when = completed_at.date() if hasattr(completed_at, "date") else utc_now().date()
+    streak = _projected_streak(pet, when)
+    return XP_PER_WORKOUT + STREAK_BONUS_XP * (streak - 1)
+
+
 def get_pet(db: Session, user_id: int) -> models.Pet | None:
     return db.query(models.Pet).filter(models.Pet.user_id == user_id).first()
+
+
+def days_since_last_activity(pet: models.Pet) -> int:
+    """Целое число дней без тренировки от `last_activity_date` до текущего дня.
+
+    Часы берём из `app.core.clock.utc_now()` — в тестах их можно подменить
+    monkeypatch-ом (`frozen_clock`). Если активности не было вовсе
+    (`last_activity_date is None`) — возвращаем 0: новый питомец ещё не
+    «скучает», его настроение задают другие правила.
+    """
+    if pet.last_activity_date is None:
+        return 0
+    return max(0, (utc_now().date() - pet.last_activity_date).days)
+
+
+def mood_for_days_without_training(days: int, current_mood: str = "idle") -> str:
+    """Настроение по количеству дней без тренировки (решение D-14).
+
+    0 дней — текущее настроение оставляем (свежая тренировка даёт happy/idle);
+    1–2 дня → neutral; 3–13 дней → sad; 14+ дней → sleeping.
+    """
+    if days < MOOD_NEUTRAL_DAYS:
+        return current_mood
+    if days < MOOD_SAD_DAYS:
+        return "neutral"
+    if days < MOOD_SLEEPING_DAYS:
+        return "sad"
+    return "sleeping"
+
+
+def refresh_mood(db: Session, pet: models.Pet) -> str:
+    days = days_since_last_activity(pet)
+    previous_mood = pet.mood
+    new_mood = mood_for_days_without_training(days, previous_mood)
+    slept = previous_mood == "sleeping" or new_mood == "sleeping"
+    if new_mood != previous_mood:
+        pet.was_sleeping = slept
+        pet.mood = new_mood
+        pet.updated_at = utc_now()
+        record_event(db, pet, EVENT_MOOD, mood=new_mood)
+        db.commit()
+    return pet.mood
+
+
+def handle_return_bonus(db: Session, pet: models.Pet, when) -> int:
+    if pet.last_activity_date is None:
+        return 0
+    day = when.date() if hasattr(when, "date") else utc_now().date()
+    gap = (day - pet.last_activity_date).days
+    if gap <= 0 or getattr(pet, "_return_bonus_awarded", False):
+        return 0
+    if gap < MOOD_SAD_DAYS and not getattr(pet, "was_sleeping", False):
+        return 0
+    pet._return_bonus_awarded = True
+    award_xp(db, pet, RETURN_BONUS_XP, event_type=EVENT_RETURN_BONUS)
+    event_bus.publish(
+        PET_RETURNED,
+        {"user_id": pet.user_id, "days_absent": gap, "xp_bonus": RETURN_BONUS_XP, "name": pet.name},
+        db,
+    )
+    return RETURN_BONUS_XP
 
 
 def get_or_create_pet(db: Session, user_id: int, name: str = "FitBuddy") -> models.Pet:
@@ -75,13 +248,16 @@ def ensure_user_quests(db: Session, user_id: int) -> list[models.UserQuest]:
     return db.query(models.UserQuest).filter(models.UserQuest.user_id == user_id).all()
 
 
-def award_xp(db: Session, pet: models.Pet, amount: int) -> models.Pet:
+def award_xp(db: Session, pet: models.Pet, amount: int, event_type: str = EVENT_XP) -> models.Pet:
     old_level = pet.level
     pet.xp += amount
-    pet.level = pet.xp // XP_PER_LEVEL + 1
+    pet.level = level_for_xp(pet.xp)
     pet.updated_at = utc_now()
+    # Событие XP/return_bonus пишем до уровня: amount = начисленный XP (PET-09).
+    record_event(db, pet, event_type, amount=amount)
     if pet.level > old_level:
         pet.mood = "level_up"
+        record_event(db, pet, EVENT_LEVEL_UP, amount=pet.level)
         event_bus.publish(
             PET_LEVELED_UP,
             {"user_id": pet.user_id, "level": pet.level, "name": pet.name},
@@ -93,29 +269,40 @@ def award_xp(db: Session, pet: models.Pet, amount: int) -> models.Pet:
 def apply_workout_completed(db: Session, user_id: int, completed_at) -> models.Pet:
     pet = get_or_create_pet(db, user_id)
     old_level = pet.level
-    pet.xp += XP_PER_WORKOUT
-    pet.level = pet.xp // XP_PER_LEVEL + 1
+    when = completed_at.date() if hasattr(completed_at, "date") else utc_now().date()
+    pet._return_bonus_awarded = False
+    return_bonus = handle_return_bonus(db, pet, completed_at)
+    pet.was_sleeping = False
+    gain = xp_for_workout(pet, completed_at)
+    pet.xp += gain
+    new_level = level_for_xp(pet.xp)
     pet.energy = min(ENERGY_MAX, pet.energy + ENERGY_GAIN)
     pet.updated_at = utc_now()
 
-    when = completed_at.date() if hasattr(completed_at, "date") else utc_now().date()
-    if pet.last_activity_date == when:
-        pass
-    elif pet.last_activity_date and pet.last_activity_date == when - timedelta(days=1):
-        pet.streak_days += 1
-    else:
-        pet.streak_days = 1
+    streak = _projected_streak(pet, when)
+    pet.streak_days = streak
     pet.last_activity_date = when
 
-    if pet.level > old_level:
+    if new_level > pet.level:
+        pet.level = new_level
         pet.mood = "level_up"
+        record_event(db, pet, EVENT_XP, amount=gain)
+        record_event(db, pet, EVENT_LEVEL_UP, amount=new_level)
         event_bus.publish(
             PET_LEVELED_UP,
             {"user_id": user_id, "level": pet.level, "name": pet.name},
             db,
         )
+    elif new_level > old_level and return_bonus:
+        # Уровень дал бонус возвращения (начислен в award_xp внутри handle_return_bonus).
+        pet.level = new_level
+        pet.mood = "level_up"
+        record_event(db, pet, EVENT_XP, amount=gain)
+        record_event(db, pet, EVENT_LEVEL_UP, amount=new_level)
     else:
+        pet.level = new_level
         pet.mood = "happy"
+        record_event(db, pet, EVENT_XP, amount=gain)
     db.flush()
     return pet
 
@@ -268,25 +455,54 @@ def apply_workout_missed(db: Session, user_id: int) -> models.Pet:
     pet.mood = "sad"
     pet.streak_days = 0
     pet.updated_at = utc_now()
+    record_event(db, pet, EVENT_MOOD, mood="sad")
     db.flush()
     return pet
+
+
+def weekly_xp(db: Session, user_id: int, now: datetime | None = None) -> int:
+    """Сумма XP за последние 7 дней по журналу `pet_events` (PET-09).
+
+    Считаются события `xp` и `return_bonus` — «сколько XP за неделю» в статистике.
+    """
+    since = (now or utc_now()) - timedelta(days=7)
+    total = (
+        db.query(func.coalesce(func.sum(models.PetEvent.amount), 0))
+        .filter(
+            models.PetEvent.user_id == user_id,
+            models.PetEvent.type.in_([EVENT_XP, EVENT_RETURN_BONUS]),
+            models.PetEvent.created_at >= since,
+        )
+        .scalar()
+    )
+    return int(total)
+
+
+def list_events(db: Session, user_id: int, limit: int = 50) -> list[models.PetEvent]:
+    """Последние события питомца (для отладки правил PET-05/PET-06)."""
+    return (
+        db.query(models.PetEvent)
+        .filter(models.PetEvent.user_id == user_id)
+        .order_by(models.PetEvent.created_at.desc(), models.PetEvent.id.desc())
+        .limit(limit)
+        .all()
+    )
 
 
 def pet_out(pet: models.Pet):
     from app.modules.pet.schemas import PetOut
 
-    remaining = XP_PER_LEVEL - (pet.xp % XP_PER_LEVEL)
-    if remaining == 0:
-        remaining = XP_PER_LEVEL
     return PetOut(
         id=pet.id,
         name=pet.name,
         xp=pet.xp,
-        xp_to_next_level=remaining,
+        xp_to_next_level=xp_to_next_level(pet.level, pet.xp),
         level=pet.level,
         energy=pet.energy,
         mood=pet.mood,
         streak_days=pet.streak_days,
+        last_activity_date=pet.last_activity_date,
+        days_since_last_activity=days_since_last_activity(pet),
         updated_at=pet.updated_at,
     )
 
