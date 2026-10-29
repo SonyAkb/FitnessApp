@@ -17,6 +17,9 @@ def on_workout_completed(payload: dict[str, Any], db) -> None:
 
 
 def on_workout_missed(payload: dict[str, Any], db) -> None:
+    pet = service.get_pet(db, payload["user_id"])
+    if pet is not None:
+        service.refresh_mood(db, pet)
     service.apply_workout_missed(db, payload["user_id"])
 
 

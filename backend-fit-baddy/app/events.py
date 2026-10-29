@@ -9,6 +9,7 @@ USER_REGISTERED = "user_registered"
 WORKOUT_COMPLETED = "workout_completed"
 WORKOUT_MISSED = "workout_missed"
 PET_LEVELED_UP = "pet_leveled_up"
+PET_RETURNED = "pet_returned"
 QUEST_COMPLETED = "quest_completed"
 ACHIEVEMENT_EARNED = "achievement_earned"
 
@@ -19,6 +20,12 @@ class EventBus:
 
     def subscribe(self, event_name: str, handler: Handler) -> None:
         self._handlers[event_name].append(handler)
+
+    def unsubscribe(self, event_name: str, handler: Handler) -> None:
+        """Отписка обработчика (нужно тестам, чтобы не «течь» подписками)."""
+        handlers = self._handlers.get(event_name)
+        if handler in handlers:
+            handlers.remove(handler)
 
     def publish(self, event_name: str, payload: dict[str, Any], db: Any = None) -> None:
         for handler in list(self._handlers.get(event_name, [])):

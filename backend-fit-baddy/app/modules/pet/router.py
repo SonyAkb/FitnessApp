@@ -12,6 +12,7 @@ router = APIRouter(tags=["pet"])
 @router.get("/pet", response_model=schemas.PetOut)
 def get_pet(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     pet = service.get_or_create_pet(db, current_user.id)
+    service.refresh_mood(db, pet)
     db.commit()
     db.refresh(pet)
     return service.pet_out(pet)

@@ -57,7 +57,7 @@ def test_streak_bonus_adds_5_xp_per_extra_day(client, db_session):
     # Разрыв в днях обнуляет серию -> снова базовые 25 XP.
     before = pet.xp
     pet = pet_service.apply_workout_completed(db_session, user["id"], at(9))
-    assert pet.xp - before == pet_service.XP_PER_WORKOUT
+    assert pet.xp - before == pet_service.XP_PER_WORKOUT + pet_service.RETURN_BONUS_XP
     assert pet.streak_days == 1
 
 

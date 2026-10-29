@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict
 
@@ -14,6 +14,8 @@ class PetOut(BaseModel):
     energy: int
     mood: str
     streak_days: int
+    last_activity_date: date | None = None
+    days_since_last_activity: int = 0
     updated_at: datetime | None = None
 
 class QuestOut(BaseModel):

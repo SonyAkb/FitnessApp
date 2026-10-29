@@ -1,6 +1,7 @@
 """In-process event bus and module wiring (architecture rule: modules react to events, not to each other)."""
 from app.events import (
     PET_LEVELED_UP,
+    PET_RETURNED,
     USER_REGISTERED,
     WORKOUT_COMPLETED,
     WORKOUT_MISSED,
@@ -30,5 +31,6 @@ def test_application_wires_expected_consumers(client):
     assert modules(WORKOUT_COMPLETED) == {"app.modules.pet.handlers", "app.modules.notifications.handlers"}
     assert modules(WORKOUT_MISSED) == {"app.modules.pet.handlers", "app.modules.notifications.handlers"}
     assert modules(PET_LEVELED_UP) == {"app.modules.notifications.handlers"}
+    assert modules(PET_RETURNED) == {"app.modules.notifications.handlers"}
     assert modules(QUEST_COMPLETED) == {"app.modules.notifications.handlers"}
     assert modules(ACHIEVEMENT_EARNED) == {"app.modules.notifications.handlers"}
