@@ -89,7 +89,8 @@ erDiagram
     int xp
     int level
     int energy "0..100"
-    string mood "idle | happy | sad | level_up | neutral"
+    string mood "idle | happy | sad | level_up | neutral | sleeping"
+    boolean was_sleeping "PET-06: питомец спал 14+ дней (приветствие при пробуждении)"
     int streak_days
     date last_activity_date
     datetime updated_at
@@ -126,7 +127,7 @@ erDiagram
     int achievement_id FK
     datetime earned_at
   }
-  
+
   notifications {
     int id PK
     int user_id FK
@@ -245,7 +246,7 @@ erDiagram
 
 Также планируется:
 - `profiles.goal` / `profiles.fitness_level` — ограничить значениями (`weight_loss | muscle_gain | endurance | health`; `beginner | intermediate | advanced`, по умолчанию `beginner`).
-- `pets.mood` — добавить `sleeping` (решение D-14).
+- `pets.mood` — добавить `sleeping` (решение D-14). **Реализовано (PET-06, миграция 0004):** `sleeping` включён в домен, добавлен флаг `pets.was_sleeping`.
 - `notification_settings` (user_id, reminders_enabled, reminder_offsets, motivational_enabled) — для US-F1/F2.
 - `payments.status` — `pending | succeeded | failed`, `subscriptions.current_period_end`.
 

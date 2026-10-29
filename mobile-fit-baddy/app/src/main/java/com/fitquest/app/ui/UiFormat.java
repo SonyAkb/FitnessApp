@@ -22,7 +22,12 @@ public final class UiFormat {
                 return R.drawable.fox_sad;
             case "level_up":
                 return R.drawable.fox_level_up;
+            // PET-06 (D-14): 14+ дней без тренировки — питомец спит,
+            // для настроения нужен отдельный кадр.
+            case "sleeping":
+                return R.drawable.fox_sleeping;
             case "neutral":
+                return R.drawable.fox_neutral;
             case "idle":
             default:
                 return R.drawable.fox_idle;
@@ -56,7 +61,11 @@ public final class UiFormat {
                 return "Fox misses the gym";
             case "level_up":
                 return "Level up! Fur is glowing";
+            // PET-06 (D-14): новые настроения neutral и sleeping.
             case "neutral":
+                return "Fox is calm but waiting for you";
+            case "sleeping":
+                return "Fox fell asleep waiting for a workout";
             case "idle":
             default:
                 return "Fox is napping until the next quest";

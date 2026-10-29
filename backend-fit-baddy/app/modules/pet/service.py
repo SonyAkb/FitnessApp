@@ -136,35 +136,28 @@ def mood_for_days_without_training(days: int, current_mood: str = "idle") -> str
 
 
 def refresh_mood(db: Session, pet: models.Pet) -> str:
-    """Пересчитывает `pet.mood` по дням с последней активности (PET-06).
-
-    Вызывается при каждом `GET /pet` и в ежедневной проверке (`workout_missed`)
-    — фоновых задач нет. Время берём из управляемых часов `utc_now`.
-    Возвращает актуальное настроение.
-    """
     days = days_since_last_activity(pet)
-    new_mood = mood_for_days_without_training(days, pet.mood)
-    if new_mood != pet.mood:
+    previous_mood = pet.mood
+    new_mood = mood_for_days_without_training(days, previous_mood)
+    slept = previous_mood == "sleeping" or new_mood == "sleeping"
+    if new_mood != previous_mood:
+        pet.was_sleeping = slept
         pet.mood = new_mood
         pet.updated_at = utc_now()
-        db.flush()
+        db.commit()
     return pet.mood
 
 
 def handle_return_bonus(db: Session, pet: models.Pet, when) -> int:
-    """Бонус возвращения после 3+ дней без активности: +10 XP и событие `pet_returned`.
-
-    Вызывается из `apply_workout_completed` ДО обновления серии: если между
-    `last_activity_date` и днём тренировки разрыв >= 3 дней — начисляем
-    `RETURN_BONUS_XP` и публикуем событие (уведомление «Рад тебя видеть!»).
-    Возвращает размер выданного бонуса (0 — если возвращение не засчитано).
-    """
     if pet.last_activity_date is None:
         return 0
     day = when.date() if hasattr(when, "date") else utc_now().date()
     gap = (day - pet.last_activity_date).days
-    if gap < MOOD_SAD_DAYS:
+    if gap <= 0 or getattr(pet, "_return_bonus_awarded", False):
         return 0
+    if gap < MOOD_SAD_DAYS and not getattr(pet, "was_sleeping", False):
+        return 0
+    pet._return_bonus_awarded = True
     award_xp(db, pet, RETURN_BONUS_XP)
     event_bus.publish(
         PET_RETURNED,
@@ -237,12 +230,9 @@ def apply_workout_completed(db: Session, user_id: int, completed_at) -> models.P
     pet = get_or_create_pet(db, user_id)
     old_level = pet.level
     when = completed_at.date() if hasattr(completed_at, "date") else utc_now().date()
-    # Возвращение после 3+ дней без активности: +10 XP и событие pet_returned
-    # (PET-06). Считаем до мутации last_activity_date; award_xp внутри
-    # handle_return_bonus уже начислил бонус — здесь добавляем только награду
-    # за тренировку, иначе XP начислится дважды.
+    pet._return_bonus_awarded = False
     return_bonus = handle_return_bonus(db, pet, completed_at)
-    # Награда по D-13 считается до обновления серии (xp_for_workout публична, WKT-09).
+    pet.was_sleeping = False
     gain = xp_for_workout(pet, completed_at)
     pet.xp += gain
     new_level = level_for_xp(pet.xp)
@@ -254,7 +244,6 @@ def apply_workout_completed(db: Session, user_id: int, completed_at) -> models.P
     pet.last_activity_date = when
 
     if new_level > pet.level:
-        # Повышение уровня произошло от награды за тренировку (поверх бонуса возвращения).
         pet.level = new_level
         pet.mood = "level_up"
         event_bus.publish(

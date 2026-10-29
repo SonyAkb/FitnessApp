@@ -14,6 +14,7 @@ class Pet(Base):
     level = Column(Integer, nullable=False, default=1)
     energy = Column(Integer, nullable=False, default=50)
     mood = Column(String, nullable=False, default="idle")
+    was_sleeping = Column(Boolean, nullable=False, default=False, server_default="0")
     streak_days = Column(Integer, nullable=False, default=0)
     last_activity_date = Column(Date, nullable=True)
     updated_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)

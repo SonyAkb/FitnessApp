@@ -16,11 +16,19 @@ public class UiFormatTest {
         assertEquals(R.drawable.fox_level_up, UiFormat.foxForMood("level_up"));
     }
 
+    /** PET-06 (D-14): neutral и sleeping получают собственные картинки. */
+    @Test
+    public void moodThresholdPicturesForNeutralAndSleeping() {
+        assertEquals(R.drawable.fox_neutral, UiFormat.foxForMood("neutral"));
+        assertEquals(R.drawable.fox_sleeping, UiFormat.foxForMood("SLEEPING"));
+        assertNotEquals(UiFormat.foxForMood("sleeping"), UiFormat.foxForMood("sad"));
+        assertNotEquals(UiFormat.moodLine("sleeping"), UiFormat.moodLine("neutral"));
+    }
+
     @Test
     public void unknownOrMissingMoodFallsBackToIdle() {
         assertEquals(R.drawable.fox_idle, UiFormat.foxForMood(null));
-        assertEquals(R.drawable.fox_idle, UiFormat.foxForMood("neutral"));
-        assertEquals(R.drawable.fox_idle, UiFormat.foxForMood("sleeping"));
+        assertEquals(R.drawable.fox_idle, UiFormat.foxForMood("bogus-mood"));
     }
 
     @Test

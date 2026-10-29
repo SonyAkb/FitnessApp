@@ -235,3 +235,34 @@ def test_return_bonus_via_api_full_path(client):
     notes = client.get("/api/v1/notifications", headers=headers).json()
     titles = [n["title"] for n in notes]
     assert "Рад тебя видеть!" in titles
+
+
+def test_wakeup_after_sleeping_gets_return_bonus(client, db_session, frozen_clock, returned_events):
+    """Пробуждение после сна (14+ дней) — сценарий из тикета: GET /pet → sleeping,
+    затем тренировка даёт +10 XP и событие `pet_returned`."""
+    token, user = register_user(client)
+    pet = pet_service.apply_workout_completed(db_session, user["id"], NOW)
+    db_session.commit()
+
+    # Перемотали часы на 20 дней вперёд — пользователь открывает приложение.
+    frozen_clock["now"] = NOW + timedelta(days=20)
+    body = client.get("/api/v1/pet", headers=auth_header(token)).json()
+    assert body["mood"] == "sleeping"
+
+    pet_service.apply_workout_completed(db_session, user["id"], frozen_clock["now"])
+    assert len(returned_events) == 1, "пробуждение засчитано как возвращение"
+    assert returned_events[0]["days_absent"] == 20
+
+
+def test_return_bonus_issued_once_per_training(client, db_session, frozen_clock, returned_events):
+    """Повторный вызов обработчика для той же тренировки не выдаёт бонус дважды."""
+    _, user = register_user(client)
+    pet_service.apply_workout_completed(db_session, user["id"], NOW)
+    db_session.commit()
+
+    frozen_clock["now"] = NOW + timedelta(days=5)
+    pet = pet_service.get_pet(db_session, user["id"])
+    first = pet_service.handle_return_bonus(db_session, pet, frozen_clock["now"])
+    pet_service.handle_return_bonus(db_session, pet, frozen_clock["now"])
+    assert first == 10
+    assert len(returned_events) == 1, "событие pet_returned опубликовано ровно один раз"
