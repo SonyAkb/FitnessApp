@@ -38,6 +38,9 @@ import java.util.List;
 
 public class WorkoutFragment extends Fragment {
 
+    /** AND-14: бэкенд начисляет 25 XP за тренировку (pet/service.py::XP_PER_WORKOUT). */
+    private static final int DEFAULT_XP_PER_WORKOUT = 25;
+
     private FragmentWorkoutBinding binding;
     private final List<WorkoutPlanDto> plans = new ArrayList<>();
     private final List<SessionDto> history = new ArrayList<>();
@@ -178,7 +181,9 @@ public class WorkoutFragment extends Fragment {
         ApiCalls.enqueue(ApiClient.get().completeSession(id, new CompleteSessionRequest(duration)), session -> {
             setBusy(false);
             store.clearActiveSession();
-            toast("Quest complete! Check your fox — XP is incoming.");
+            int awarded = session == null || session.xp_awarded == null ? 0 : session.xp_awarded;
+            store.markXpPending(awarded > 0 ? awarded : DEFAULT_XP_PER_WORKOUT);
+            toast("Quest complete! Check your fox — +" + (awarded > 0 ? awarded : DEFAULT_XP_PER_WORKOUT) + " XP");
             refreshActiveBanner();
             load();
         }, err -> {
