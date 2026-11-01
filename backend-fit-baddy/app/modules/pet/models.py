@@ -2,7 +2,7 @@ from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Integer, Str
 
 from app.core.clock import utc_now
 from app.core.database import Base
-
+import sqlalchemy as sa
 
 class Pet(Base):
     __tablename__ = "pets"
@@ -14,7 +14,7 @@ class Pet(Base):
     level = Column(Integer, nullable=False, default=1)
     energy = Column(Integer, nullable=False, default=50)
     mood = Column(String, nullable=False, default="idle")
-    was_sleeping = Column(Boolean, nullable=False, default=False, server_default="0")
+    was_sleeping = Column(Boolean, nullable=False, default=False, server_default='0')
     streak_days = Column(Integer, nullable=False, default=0)
     last_activity_date = Column(Date, nullable=True)
     updated_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
