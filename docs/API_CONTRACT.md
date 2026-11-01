@@ -674,18 +674,38 @@ JWT. Требует entitlement `ai_recommendations` (тариф Pro): инач�
 ```json
 {
   "id": 44,
-  "recommendation": "Попробуйте увеличить вес в приседаниях на 2.5 кг",
-  "reason": "стабильное выполнение плана на этой неделе",
+  "text": "Сделайте присед 3×10 с весом 42 кг",
+  "recommendation": "Сделайте присед 3×10 с весом 42 кг",
+  "reason": "все подходы выполнены, прибавка в пределах 2–10%",
+  "intensity": "moderate",
+  "sources": [{"id": "acsm-2009", "title": "Ratamess et al., 2009", "url": "https://doi.org/10.1249/MSS.0b013e3181915670"}],
+  "engine": "rag",
   "disclaimer": "Это не медицинская рекомендация",
   "created_at": "2026-09-12T18:45:00Z"
 }
 ```
 
-На MVP допустим mock / лёгкое правило. Модель с Colab — замена за тем же контрактом.
+Движок задаёт `AI_ENGINE` (D-33): `rules` — правила; `rag` — LLM + RAG-сервис в Colab ([`docs/ai/README.md`](ai/README.md)). Если Colab не настроен, не ответил за `AI_RAG_TIMEOUT_S` или вернул ошибку — ответ по правилам, код `200`, `engine: "rules"`. У ответа по правилам `intensity = null`, `sources = []`.
 
 ### `GET /api/v1/ai/history`
 
-JWT. **Response `200`:** массив тех же объектов.
+JWT. **Response `200`:** массив тех же объектов, новые сверху.
+
+### `POST /api/v1/ai/ask`
+
+JWT, тариф Pro. Свободный вопрос по базе знаний; в историю не пишется.
+
+**Request:** `{"question": "Сколько минут в неделю нужно двигаться?"}` (3–500 символов).
+
+**Response `200`:** `{"answer": "…", "sources": [{"id", "title", "url"}], "model": "qwen3:8b", "disclaimer": "…"}`.
+
+**Ошибки:** `403` — нет Pro; `422` — пустой или слишком длинный вопрос; `503` — `AI_ENGINE=rules` или Colab недоступен.
+
+### `GET /api/v1/ai/status`
+
+JWT. Проверка подключения к Colab, для отладки и демонстрации.
+
+**Response `200`:** `{"engine": "rag", "rag_configured": true, "rag_available": true, "model": "qwen3:8b"}`.
 
 ---
 

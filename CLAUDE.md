@@ -8,6 +8,7 @@ FitQuest — Educational Project Context
 > - Docker Compose: сервисы `db` и `backend`. Redis не используется. Симулятор телеметрии встроен в backend (`/api/v1/telemetry/simulate`); узел Pi — отдельная папка, публикует `TelemetryDTO(source=raspberry_pi)` в `POST /api/v1/telemetry/ingest` (D-17).
 > - Команда — 5 человек, разделение по бизнес-модулям. Каждая из трёх кодовых папок самодостаточна (свой README, зависимости, тесты, CI-job).
 > - Сроки: 11.09.2026 — 25.12.2026.
+> - ИИ: LLM (Qwen3 8B, Ollama) + RAG в Google Colab, backend обращается к ней по HTTP через туннель, при недоступности — правила; реализация `RagRecommendationService` (D-33, `docs/ai/README.md`).
 
 
 IMPORTANT: This is an educational team project
