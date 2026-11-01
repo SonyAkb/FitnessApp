@@ -85,8 +85,26 @@ public class ProgressFragment extends Fragment {
             binding.recommend.setText("No tip yet — finish a workout first.");
             return;
         }
-        String when = rec.created_at == null ? "" : "\n" + rec.created_at;
-        binding.recommend.setText(rec.text + when);
+        StringBuilder sb = new StringBuilder(rec.text);
+        if (rec.intensity != null) {
+            sb.append("\n\nIntensity: ").append(rec.intensity);
+        }
+        if (rec.reason != null) {
+            sb.append("\nWhy: ").append(rec.reason);
+        }
+        if (rec.sources != null && !rec.sources.isEmpty()) {
+            sb.append("\nSources:");
+            for (RecommendationDto.Source source : rec.sources) {
+                sb.append("\n• ").append(source.title);
+            }
+        }
+        if (rec.disclaimer != null && !rec.text.contains(rec.disclaimer)) {
+            sb.append("\n\n").append(rec.disclaimer);
+        }
+        if (rec.created_at != null) {
+            sb.append("\n").append(rec.created_at);
+        }
+        binding.recommend.setText(sb.toString());
     }
 
     private void showError(String error) {
