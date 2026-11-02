@@ -48,11 +48,24 @@ def start_session(
     if not plan:
         raise HTTPException(status_code=404, detail="Workout plan not found")
     session = service.start_session(
-        db, current_user.id, data.resolved_plan_id, scheduled_id=data.scheduled_id
+        db, current_user.id, plan, scheduled_id=data.scheduled_id
     )
     db.commit()
     db.refresh(session)
     return service.session_out(session)
+
+
+@router.post("/sessions/{session_id}/sets", response_model=schemas.ExerciseSetOut)
+def log_set(
+    session_id: int,
+    data: schemas.SetLogIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    updated_set = service.log_set(db, current_user.id, session_id, data)
+    db.commit()
+    db.refresh(updated_set)
+    return updated_set
 
 
 @router.post("/sessions/{session_id}/complete", response_model=schemas.WorkoutSessionOut)
@@ -105,6 +118,7 @@ def history(
     current_user: User = Depends(get_current_user),
 ):
     return service.history_out(db, current_user.id, limit=limit, offset=offset)
+
 
 @router.patch("/plans/{plan_id}", response_model=schemas.WorkoutPlanOut)
 def update_plan(
