@@ -35,19 +35,35 @@ public final class UiFormat {
     }
 
     /**
-     * Maps pet moods to animation resources.
-     * Add a dedicated animation resource to a mood branch when it is ready.
+     * AND-14: отдельная покадровая анимация для каждого настроения питомца.
+     * happy / sad / sleeping / level_up / neutral имеют свои кадры в res/drawable-nodpi/,
+     * поэтому каждая ветка возвращает собственный animation-list. Только неизвестное
+     * настроение (и null) откатывается на анимацию простоя.
      */
     public static int foxAnimationForMood(String mood) {
         switch (mood == null ? "" : mood.toLowerCase()) {
             case "happy":
+                return R.drawable.fox_happy_animation;
             case "sad":
+                return R.drawable.fox_sad_animation;
+            case "sleeping":
+                return R.drawable.fox_sleeping_animation;
             case "level_up":
+                return R.drawable.fox_level_up_animation;
             case "neutral":
+                return R.drawable.fox_neutral_animation;
             case "idle":
             default:
                 return R.drawable.fox_idle_animation;
         }
+    }
+
+    public static int xpGainAnimation() {
+        return R.drawable.xp_gain_animation;
+    }
+
+    public static boolean isOneShotAnimation(String mood) {
+        return "level_up".equalsIgnoreCase(mood);
     }
 
     public static String moodLine(String mood) {
@@ -61,7 +77,6 @@ public final class UiFormat {
                 return "Fox misses the gym";
             case "level_up":
                 return "Level up! Fur is glowing";
-            // PET-06 (D-14): новые настроения neutral и sleeping.
             case "neutral":
                 return "Fox is calm but waiting for you";
             case "sleeping":

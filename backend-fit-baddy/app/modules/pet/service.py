@@ -175,6 +175,9 @@ def refresh_mood(db: Session, pet: models.Pet) -> str:
     days = days_since_last_activity(pet)
     previous_mood = pet.mood
     new_mood = mood_for_days_without_training(days, previous_mood)
+
+    if days == 0 and previous_mood == "sleeping":
+        new_mood = "happy" if getattr(pet, "was_sleeping", False) else "idle"
     slept = previous_mood == "sleeping" or new_mood == "sleeping"
     if new_mood != previous_mood:
         pet.was_sleeping = slept

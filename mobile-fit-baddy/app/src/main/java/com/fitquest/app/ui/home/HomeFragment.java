@@ -5,11 +5,13 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
+import com.fitquest.app.FitQuestApp;
 import com.fitquest.app.R;
 import com.fitquest.app.api.ApiCalls;
 import com.fitquest.app.api.ApiClient;
@@ -65,7 +67,14 @@ public class HomeFragment extends Fragment {
 
     private void load() {
         showError(null);
-        ApiCalls.enqueue(ApiClient.get().getPet(), this::bindPet, this::showError);
+        // AND-14: если тренировка завершилась на другом экране, «+XP» показываем при первом же обновлении Логова.
+        int pendingXp = FitQuestApp.get() == null ? 0 : FitQuestApp.get().session().consumeXpPending();
+        ApiCalls.enqueue(ApiClient.get().getPet(), pet -> {
+            bindPet(pet);
+            if (pendingXp > 0) {
+                playXpBurst(pendingXp);
+            }
+        }, this::showError);
         ApiCalls.enqueue(ApiClient.get().getDashboard(), this::bindDashboard, this::showError);
         ApiCalls.enqueue(ApiClient.get().getLatestTelemetry(), this::bindTelemetry, err -> {
             // Telemetry may be empty before simulate — not fatal on home.
@@ -91,12 +100,10 @@ public class HomeFragment extends Fragment {
         }
         String name = pet.name == null ? "Fox" : pet.name;
         binding.foxName.setText(name);
-        if ("sleeping".equalsIgnoreCase(pet.mood)) {
-            binding.fox.setImageResource(UiFormat.foxForMood(pet.mood));
-        } else {
-            binding.fox.setImageResource(UiFormat.foxAnimationForMood(pet.mood));
-            startFoxAnimation();
-        }
+        // AND-14: у каждого настроения своя покадровая анимация (в т.ч. sleeping),
+        // поэтому статичную картинку больше не подставляем — только animation-list.
+        binding.fox.setImageResource(UiFormat.foxAnimationForMood(pet.mood));
+        startFoxAnimation();
         binding.mood.setText(UiFormat.moodLine(pet.mood));
         int xp = pet.xp == null ? 0 : pet.xp;
         int level = pet.level == null ? 1 : pet.level;
@@ -114,6 +121,38 @@ public class HomeFragment extends Fragment {
         if (binding.fox.getDrawable() instanceof AnimationDrawable) {
             ((AnimationDrawable) binding.fox.getDrawable()).start();
         }
+    }
+
+    private void playXpBurst(int amount) {
+        if (binding == null || amount <= 0) {
+            return;
+        }
+        ImageView burst = binding.foxXpBurst;
+        burst.setVisibility(View.VISIBLE);
+        burst.setImageResource(UiFormat.xpGainAnimation());
+        if (burst.getDrawable() instanceof AnimationDrawable) {
+            AnimationDrawable frames = (AnimationDrawable) burst.getDrawable();
+            frames.stop();
+            frames.start();
+        }
+        binding.foxXpText.setVisibility(View.VISIBLE);
+        binding.foxXpText.setText("+" + amount + " XP");
+        binding.foxXpText.setAlpha(1f);
+        binding.foxXpText.setTranslationY(0f);
+        binding.foxXpText.animate()
+                .translationY(-48f)
+                .alpha(0f)
+                .setDuration(900L)
+                .withEndAction(() -> hideXpBurst())
+                .start();
+    }
+
+    private void hideXpBurst() {
+        if (binding == null) {
+            return;
+        }
+        binding.foxXpBurst.setVisibility(View.GONE);
+        binding.foxXpText.setVisibility(View.GONE);
     }
 
     private void bindDashboard(DashboardSummaryDto summary) {

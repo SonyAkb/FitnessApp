@@ -3,8 +3,8 @@
 Журнал событий питомца: xp, level_up, mood, return_bonus. Пишется при каждом
 изменении питомца — для статистики «сколько XP за неделю» и отладки правил.
 
-Revision ID: 0005
-Revises: 0004
+Revision ID: 0007
+Revises: 0006
 Create Date: 2026-10-29 00:00:00.000000
 
 """
@@ -15,8 +15,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '0005'
-down_revision: Union[str, None] = '0004'
+revision: str = '0007'
+down_revision: Union[str, None] = '0006'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
