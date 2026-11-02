@@ -6,6 +6,7 @@ import com.fitquest.app.api.dto.DashboardSummaryDto;
 import com.fitquest.app.api.dto.DeviceDto;
 import com.fitquest.app.api.dto.DeviceInfoDto;
 import com.fitquest.app.api.dto.DeviceRegisterRequest;
+import com.fitquest.app.api.dto.ExerciseSetDto;
 import com.fitquest.app.api.dto.LoginRequest;
 import com.fitquest.app.api.dto.NotificationDto;
 import com.fitquest.app.api.dto.PairingCodeDto;
@@ -17,6 +18,7 @@ import com.fitquest.app.api.dto.ScheduleCreateRequest;
 import com.fitquest.app.api.dto.ScheduleItemDto;
 import com.fitquest.app.api.dto.SessionCreateRequest;
 import com.fitquest.app.api.dto.SessionDto;
+import com.fitquest.app.api.dto.SetResultRequest;
 import com.fitquest.app.api.dto.SubscriptionDto;
 import com.fitquest.app.api.dto.TelemetryBatchRequest;
 import com.fitquest.app.api.dto.TelemetryBatchResult;
@@ -70,6 +72,9 @@ public interface FitQuestApi {
 
     @POST("/api/v1/workouts/sessions")
     Call<SessionDto> startSession(@Body SessionCreateRequest body);
+
+    @POST("/api/v1/workouts/sessions/{id}/sets")
+    Call<ExerciseSetDto> postSet(@Path("id") int id, @Body SetResultRequest body);
 
     @POST("/api/v1/workouts/sessions/{id}/complete")
     Call<SessionDto> completeSession(@Path("id") int id, @Body CompleteSessionRequest body);
