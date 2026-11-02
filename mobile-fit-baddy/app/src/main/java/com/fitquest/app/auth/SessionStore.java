@@ -20,6 +20,7 @@ public class SessionStore {
     private static final String KEY_SESSION_ID = "active_session_id";
     private static final String KEY_SESSION_STARTED = "active_session_started";
     private static final String KEY_PLAN_ID = "active_plan_id";
+    private static final String KEY_EXERCISES = "active_exercises";
     private static final String KEY_DEVICE_ID = "device_id";
     private static final String KEY_DISPLAY_NAME = "display_name";
 
@@ -77,6 +78,7 @@ public class SessionStore {
                 .remove(KEY_SESSION_ID)
                 .remove(KEY_SESSION_STARTED)
                 .remove(KEY_PLAN_ID)
+                .remove(KEY_EXERCISES)
                 .apply();
     }
 
@@ -93,6 +95,7 @@ public class SessionStore {
                 .remove(KEY_SESSION_ID)
                 .remove(KEY_SESSION_STARTED)
                 .remove(KEY_PLAN_ID)
+                .remove(KEY_EXERCISES)
                 .apply();
     }
 
@@ -102,6 +105,15 @@ public class SessionStore {
 
     public int getActivePlanId() {
         return prefs.getInt(KEY_PLAN_ID, -1);
+    }
+
+    /** JSON-список упражнений активной сессии (SessionExerciseDto), чтобы открыть экран тренировки. */
+    public void setActiveExercisesJson(String json) {
+        prefs.edit().putString(KEY_EXERCISES, json).apply();
+    }
+
+    public String getActiveExercisesJson() {
+        return prefs.getString(KEY_EXERCISES, null);
     }
 
     public long getActiveSessionStartedAt() {

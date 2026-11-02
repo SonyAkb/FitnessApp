@@ -1,7 +1,13 @@
 package com.fitquest.app.ui.workout;
 
 import android.app.AlertDialog;
+import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
 import android.text.InputType;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -9,6 +15,7 @@ import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.Toast;
+
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -25,18 +32,24 @@ import com.fitquest.app.api.dto.ExerciseDto;
 import com.fitquest.app.api.dto.ScheduleCreateRequest;
 import com.fitquest.app.api.dto.SessionCreateRequest;
 import com.fitquest.app.api.dto.SessionDto;
+import com.fitquest.app.api.dto.SessionExerciseDto;
 import com.fitquest.app.api.dto.WorkoutPlanDto;
 import com.fitquest.app.auth.SessionStore;
 import com.fitquest.app.databinding.FragmentWorkoutBinding;
 import com.fitquest.app.databinding.ItemPlanBinding;
 import com.fitquest.app.databinding.ItemSessionBinding;
+import com.fitquest.app.workout.RestTimer;
+import com.google.gson.Gson;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 
 public class WorkoutFragment extends Fragment {
+
+    private static final long REST_TICK_MS = 250;
 
     private FragmentWorkoutBinding binding;
     private final List<WorkoutPlanDto> plans = new ArrayList<>();
@@ -44,6 +57,20 @@ public class WorkoutFragment extends Fragment {
     private PlanAdapter planAdapter;
     private HistoryAdapter historyAdapter;
     private Integer selectedPlanId;
+
+    // --- AND-12: rest timer. Логика в RestTimer, здесь только отображение. ---
+    private final RestTimer restTimer = RestTimer.system();
+    private final Handler restHandler = new Handler(Looper.getMainLooper());
+    private final Runnable restTick = new Runnable() {
+        @Override
+        public void run() {
+            restTimer.tick();
+            renderRest();
+            if (restTimer.getState() == RestTimer.State.RUNNING) {
+                restHandler.postDelayed(this, REST_TICK_MS);
+            }
+        }
+    };
 
     @Nullable
     @Override
@@ -66,6 +93,10 @@ public class WorkoutFragment extends Fragment {
         binding.btnComplete.setOnClickListener(v -> completeSession());
         binding.btnPinToday.setOnClickListener(v -> pinToday());
         binding.swipe.setOnRefreshListener(this::load);
+        // AND-11: баннер активной сессии открывает экран тренировки
+        binding.activeCard.setOnClickListener(v -> openSessionScreen());
+
+        setupRestTimer();
     }
 
     @Override
@@ -73,20 +104,106 @@ public class WorkoutFragment extends Fragment {
         super.onResume();
         load();
         refreshActiveBanner();
+        // Таймер мог дотикать, пока экран был свёрнут: проверим и возобновим цикл тиков.
+        restHandler.removeCallbacks(restTick);
+        restHandler.post(restTick);
     }
+
+    @Override
+    public void onPause() {
+        restHandler.removeCallbacks(restTick);
+        super.onPause();
+    }
+
+    // ------------------------------------------------------------------
+    // Rest timer
+    // ------------------------------------------------------------------
+
+    private void setupRestTimer() {
+        restTimer.setListener(this::vibrateEnd);
+
+        binding.btnRest30.setOnClickListener(v -> startRest(30));
+        binding.btnRest60.setOnClickListener(v -> startRest(60));
+        binding.btnRest90.setOnClickListener(v -> startRest(90));
+        binding.btnRest120.setOnClickListener(v -> startRest(120));
+
+        binding.btnRestPlus30.setOnClickListener(v -> {
+            restTimer.addSeconds(RestTimer.EXTRA_SECONDS);
+            renderRest();
+        });
+        binding.btnRestSkip.setOnClickListener(v -> {
+            restTimer.skip();
+            restHandler.removeCallbacks(restTick);
+            renderRest();
+        });
+        binding.btnRestPause.setOnClickListener(v -> {
+            if (restTimer.getState() == RestTimer.State.PAUSED) {
+                restTimer.resume();
+                restHandler.removeCallbacks(restTick);
+                restHandler.post(restTick);
+            } else {
+                restTimer.pause();
+                restHandler.removeCallbacks(restTick);
+            }
+            renderRest();
+        });
+
+        renderRest();
+    }
+
+    private void startRest(int seconds) {
+        restTimer.start(seconds);
+        restHandler.removeCallbacks(restTick);
+        restHandler.post(restTick);
+    }
+
+    private void renderRest() {
+        if (binding == null) {
+            return;
+        }
+        RestTimer.State state = restTimer.getState();
+        boolean active = state == RestTimer.State.RUNNING || state == RestTimer.State.PAUSED;
+        binding.restControls.setVisibility(active ? View.VISIBLE : View.GONE);
+
+        if (state == RestTimer.State.IDLE) {
+            binding.restTime.setText("--:--");
+        } else if (state == RestTimer.State.FINISHED) {
+            binding.restTime.setText("Go!");
+        } else {
+            int sec = restTimer.remainingSeconds();
+            binding.restTime.setText(String.format(Locale.US, "%d:%02d", sec / 60, sec % 60));
+        }
+        binding.btnRestPause.setText(state == RestTimer.State.PAUSED ? "Resume" : "Pause");
+    }
+
+    private void vibrateEnd() {
+        Context context = getContext();
+        if (context == null) {
+            return;
+        }
+        Vibrator vibrator = context.getSystemService(Vibrator.class);
+        if (vibrator != null && vibrator.hasVibrator()) {
+            vibrator.vibrate(VibrationEffect.createWaveform(new long[]{0, 300, 150, 300}, -1));
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Workout screen
+    // ------------------------------------------------------------------
 
     private void load() {
         showError(null);
         ApiCalls.enqueue(ApiClient.get().getPlans(), list -> {
+            if (binding == null) {
+                return;
+            }
             plans.clear();
             if (list != null) {
                 plans.addAll(list);
             }
             planAdapter.notifyDataSetChanged();
             binding.emptyPlans.setVisibility(plans.isEmpty() ? View.VISIBLE : View.GONE);
-            if (binding != null) {
-                binding.swipe.setRefreshing(false);
-            }
+            binding.swipe.setRefreshing(false);
         }, err -> {
             showError(err);
             if (binding != null) {
@@ -94,6 +211,9 @@ public class WorkoutFragment extends Fragment {
             }
         });
         ApiCalls.enqueue(ApiClient.get().getHistory(), wrapper -> {
+            if (binding == null) {
+                return;
+            }
             history.clear();
             if (wrapper != null) {
                 history.addAll(wrapper.safeItems());
@@ -158,12 +278,22 @@ public class WorkoutFragment extends Fragment {
                 return;
             }
             FitQuestApp.get().session().setActiveSession(session.id, selectedPlanId);
-            toast("Quest started — sweat, then complete it");
+            List<SessionExerciseDto> exercises = session.safeExercises();
+            FitQuestApp.get().session().setActiveExercisesJson(new Gson().toJson(exercises));
             refreshActiveBanner();
+            if (exercises.isEmpty()) {
+                toast("Quest started, but the plan has no exercises — use Complete");
+            } else {
+                openSessionScreen();
+            }
         }, err -> {
             setBusy(false);
             toast(err);
         });
+    }
+
+    private void openSessionScreen() {
+        startActivity(new Intent(requireContext(), SessionActivity.class));
     }
 
     private void completeSession() {
@@ -287,11 +417,15 @@ public class WorkoutFragment extends Fragment {
     }
 
     private void toast(String msg) {
-        Toast.makeText(requireContext(), msg, Toast.LENGTH_LONG).show();
+        Context context = getContext();
+        if (context != null) {
+            Toast.makeText(context, msg, Toast.LENGTH_LONG).show();
+        }
     }
 
     @Override
     public void onDestroyView() {
+        restHandler.removeCallbacks(restTick);
         binding = null;
         super.onDestroyView();
     }

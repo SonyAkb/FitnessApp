@@ -35,6 +35,10 @@
             android:windowSoftInputMode="adjustResize" />
 
         <activity
+            android:name=".ui.workout.SessionActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".ui.MainActivity"
             android:exported="false" />
 
