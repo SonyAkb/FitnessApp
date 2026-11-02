@@ -3,9 +3,9 @@ from datetime import timezone
 from fastapi import HTTPException
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
-
 from app.core.clock import utc_now
 from app.modules.workouts import models, schemas
+from app.modules.pet import service as pet_service
 
 
 def list_plans(db: Session, user_id: int) -> list[models.WorkoutPlan]:
@@ -141,7 +141,8 @@ def complete_session(
     session.status = "completed"
     session.completed_at = completed_at
     session.duration_seconds = duration_seconds
-    session.xp_awarded = 25
+    pet = pet_service.get_or_create_pet(db, session.user_id)
+    session.xp_awarded = pet_service.xp_for_workout(pet, completed_at)
     
     for se in session.exercises:
         for s in se.sets:
@@ -151,7 +152,6 @@ def complete_session(
         
     db.flush()
     return session
-
 
 def list_history(
     db: Session, user_id: int, limit: int = 20, offset: int = 0
