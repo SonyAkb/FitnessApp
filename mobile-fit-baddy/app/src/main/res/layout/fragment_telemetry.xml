@@ -149,11 +149,11 @@
                 android:text="Simulate beat" />
 
             <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnRegister"
+                android:id="@+id/btnSources"
                 style="@style/Widget.FitQuest.Button.Secondary"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Register this device" />
+                android:text="Data sources: Raspberry Pi, watch" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnPoll"
@@ -174,7 +174,7 @@
                 android:id="@+id/emptyHistory"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="No samples yet. Tap Simulate beat."
+                android:text="No samples yet. Tap Simulate beat or connect a data source."
                 android:textColor="@color/muted"
                 android:visibility="gone" />
 

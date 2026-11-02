@@ -86,13 +86,13 @@ tests/                 pytest: API-тесты через TestClient
 | pet | `GET /pet` |
 | dashboard | `GET /dashboard/summary` |
 | notifications | `GET /notifications`, `POST /notifications/{id}/read` |
-| devices | `POST /devices/register`, `GET /telemetry/latest`, `GET /telemetry/history`, `POST /telemetry/simulate`, `WS /telemetry/ws` |
+| devices | `POST /devices/register`, `POST /devices/pairing`, `POST /devices/pair`, `GET /devices`, `DELETE /devices/{device_id}`, `POST /telemetry/ingest` (`X-Device-Token`), `POST /telemetry/batch`, `GET /telemetry/latest`, `GET /telemetry/history`, `POST /telemetry/simulate`, `WS /telemetry/ws` |
 | ai | `GET /ai/recommend`, `GET /ai/history` |
 | subscription | `GET /subscription`, `POST /subscription/checkout`, `POST /subscription/webhook` |
 
 Все пути — с префиксом `/api/v1`. Защищённые методы ждут `Authorization: Bearer <access_token>`. WebSocket: `ws://host:8000/api/v1/telemetry/ws?token=<jwt>` или первым сообщением `{"token": "<jwt>"}`.
 
-Запланировано (см. `docs/planning/issues/`): `POST /telemetry/ingest` (приём от Raspberry Pi по `X-Device-Token`), квесты и достижения питомца, каталог упражнений и подходы.
+Подключение Raspberry Pi — по коду сопряжения: приложение получает код (`POST /devices/pairing`), узел обменивает его на свой токен (`POST /devices/pair`) и шлёт точки в `POST /telemetry/ingest`. Часы и браслеты — через Health Connect: приложение отправляет точки в `POST /telemetry/batch`. Подробно — `docs/API_CONTRACT.md`, раздел «Devices и telemetry».
 
 ## События
 

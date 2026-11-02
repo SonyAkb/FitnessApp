@@ -4,9 +4,11 @@ import com.fitquest.app.api.dto.CompleteSessionRequest;
 import com.fitquest.app.api.dto.CreatePlanRequest;
 import com.fitquest.app.api.dto.DashboardSummaryDto;
 import com.fitquest.app.api.dto.DeviceDto;
+import com.fitquest.app.api.dto.DeviceInfoDto;
 import com.fitquest.app.api.dto.DeviceRegisterRequest;
 import com.fitquest.app.api.dto.LoginRequest;
 import com.fitquest.app.api.dto.NotificationDto;
+import com.fitquest.app.api.dto.PairingCodeDto;
 import com.fitquest.app.api.dto.PetDto;
 import com.fitquest.app.api.dto.ProfileUpdateRequest;
 import com.fitquest.app.api.dto.RecommendationDto;
@@ -16,16 +18,22 @@ import com.fitquest.app.api.dto.ScheduleItemDto;
 import com.fitquest.app.api.dto.SessionCreateRequest;
 import com.fitquest.app.api.dto.SessionDto;
 import com.fitquest.app.api.dto.SubscriptionDto;
+import com.fitquest.app.api.dto.TelemetryBatchRequest;
+import com.fitquest.app.api.dto.TelemetryBatchResult;
 import com.fitquest.app.api.dto.TelemetryDto;
 import com.fitquest.app.api.dto.TokenResponse;
 import com.fitquest.app.api.dto.UserDto;
 import com.fitquest.app.api.dto.WorkoutHistoryDto;
 import com.fitquest.app.api.dto.WorkoutPlanDto;
 
+import com.fitquest.app.api.dto.QuestDto;
+import com.fitquest.app.api.dto.AchievementDto;
+
 import java.util.List;
 
 import retrofit2.Call;
 import retrofit2.http.Body;
+import retrofit2.http.DELETE;
 import retrofit2.http.GET;
 import retrofit2.http.PATCH;
 import retrofit2.http.POST;
@@ -84,6 +92,18 @@ public interface FitQuestApi {
     @POST("/api/v1/devices/register")
     Call<DeviceDto> registerDevice(@Body DeviceRegisterRequest body);
 
+    @GET("/api/v1/devices")
+    Call<List<DeviceInfoDto>> getDevices();
+
+    @DELETE("/api/v1/devices/{device_id}")
+    Call<Void> deleteDevice(@Path("device_id") String deviceId);
+
+    @POST("/api/v1/devices/pairing")
+    Call<PairingCodeDto> createPairingCode();
+
+    @POST("/api/v1/telemetry/batch")
+    Call<TelemetryBatchResult> uploadTelemetryBatch(@Body TelemetryBatchRequest body);
+
     @GET("/api/v1/telemetry/latest")
     Call<TelemetryDto> getLatestTelemetry();
 
@@ -101,4 +121,10 @@ public interface FitQuestApi {
 
     @POST("/api/v1/subscription/checkout")
     Call<SubscriptionDto> checkout();
+
+    @GET("/api/v1/pet/quests")
+    Call<List<QuestDto>> getQuests();
+
+    @GET("/api/v1/pet/achievements")
+    Call<List<AchievementDto>> getAchievements();
 }

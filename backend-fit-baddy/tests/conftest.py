@@ -14,8 +14,11 @@ from app.main import app
 
 @pytest.fixture()
 def client():
+    from app.modules.devices.service import reset_pairings
+
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
+    reset_pairings()
     with TestClient(app) as test_client:
         yield test_client
     Base.metadata.drop_all(bind=engine)

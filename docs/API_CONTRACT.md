@@ -4,7 +4,7 @@
 
 Симулятор и Raspberry Pi (`pi-fit-baddy`) используют **один и тот же Telemetry DTO**. Клиент не ветвится по источнику — только читает `source`.
 
-> Это **целевой** контракт. Не реализованное пока отмечено как **(план)** (`/telemetry/ingest`, WS-рассылка сохранённых точек, настроение `sleeping`); построчный статус — `docs/planning/REQUIREMENTS_TRACE.md`, набор B.
+> Это **целевой** контракт. Не реализованное пока отмечено как **(план)** (`/telemetry/ingest`, WS-рассылка сохранённых точек); построчный статус — `docs/planning/REQUIREMENTS_TRACE.md`, набор B.
 
 Интерактивная спецификация после запуска: [http://localhost:8000/docs](http://localhost:8000/docs).
 
@@ -139,13 +139,13 @@
 }
 ```
 
-**Response `200`** — те же `access_token`, `refresh_token`, `token_type`, `user`.  
+**Response `200`** — те же `access_token`, `refresh_token`, `token_type`, `user`.
 `401` — неверные учётные данные.
 
 ### `POST /api/v1/auth/refresh`
 
-Открытый. **Request:** `{ "refresh_token": "<jwt>" }`.  
-**Response `200`:** новые `access_token`, `refresh_token`, `token_type`.  
+Открытый. **Request:** `{ "refresh_token": "<jwt>" }`.
+**Response `200`:** новые `access_token`, `refresh_token`, `token_type`.
 `401` — токен просрочен, подделан или это access-токен (поле `typ` должно быть `refresh`). Защищённые методы принимают **только** токены с `typ=access`.
 
 ### `GET /api/v1/auth/me`
@@ -206,17 +206,17 @@ JWT. Частичное обновление.
 }
 ```
 
-`status`: `planned` \| `completed` \| `missed`.  
+`status`: `planned` \| `completed` \| `missed`.
 `repeat_rule`: `null` или RRULE-строка MVP (`FREQ=WEEKLY;BYDAY=MO,WE`).
 
 ### `GET /api/v1/schedule`
 
-JWT. Query: `from`, `to` (ISO datetime, опционально).  
+JWT. Query: `from`, `to` (ISO datetime, опционально).
 **Response `200`:** `ScheduleItem[]`.
 
 ### `POST /api/v1/schedule`
 
-JWT. **Request:** `title`, `starts_at`, опционально `ends_at`, `plan_id`, `repeat_rule`.  
+JWT. **Request:** `title`, `starts_at`, опционально `ends_at`, `plan_id`, `repeat_rule`.
 **Response `201`:** `ScheduleItem`.
 
 ### `PATCH /api/v1/schedule/{id}`
@@ -278,7 +278,7 @@ JWT. **Response `200`:** `WorkoutPlan[]`.
 
 ### `POST /api/v1/workouts/plans`
 
-JWT. **Request:** `name`, опционально `description`, `exercises[]`.  
+JWT. **Request:** `name`, опционально `description`, `exercises[]`.
 **Response `201`:** `WorkoutPlan`.
 
 ### `PATCH /api/v1/workouts/plans/{id}`
@@ -286,7 +286,7 @@ JWT. **Request:** `name`, опционально `description`, `exercises[]`.
 JWT. Частичное обновление плана. Все поля необязательные: `name` (или `title`), `description`, `exercises[]`.
 Если `exercises` передан, он **заменяет весь список** упражнений.
 
-**Response `200`:** `WorkoutPlan`.  
+**Response `200`:** `WorkoutPlan`.
 `404` — плана нет, он чужой или архивирован. `422` — выход за границы `sets`/`reps` или пустое название.
 
 ### `DELETE /api/v1/workouts/plans/{id}`
@@ -396,13 +396,93 @@ JWT. Состояние персонажа — источник правды н�
   "energy": 70,
   "mood": "happy",
   "streak_days": 3,
+  "last_activity_date": "2026-09-12",
+  "days_since_last_activity": 0,
   "updated_at": "2026-09-12T18:40:05Z"
 }
 ```
 
-`mood`: `idle` \| `happy` \| `sad` \| `level_up` \| `neutral` \| `sleeping` (план). Android показывает `neutral` как `idle`.
+`mood`: `idle` \| `happy` \| `sad` \| `level_up` \| `neutral` \| `sleeping`. Android показывает `neutral` как `idle`, для `sleeping` — отдельная картинка (PET-06).
 
-Правила (решения D-13, D-14): +25 XP за тренировку и +5 XP за каждый день серии сверх первого; `xp_to_next_level` = `level × 100`; максимум 50 уровней. Настроение по дням без тренировки: 1–2 → `neutral`, 3–13 → `sad`, 14+ → `sleeping`.
+Правила (решения D-13, D-14): +25 XP за тренировку и +5 XP за каждый день серии сверх первого; `xp_to_next_level` = `level × 100`; максимум 50 уровней. На 50-м уровне `xp_to_next_level = 0`, XP продолжает накапливаться, уровень не растёт. Настроение по дням без тренировки: 1–2 → `neutral`, 3–13 → `sad`, 14+ → `sleeping` (считается при `GET /pet` и в ежедневной проверке от `last_activity_date`, без фоновых задач). Возвращение после 3+ дней (или пробуждение): `+10 XP`, событие `pet_returned` → уведомление «Рад тебя видеть!» (D-14, PET-06).
+### `GET /api/v1/pet/quests`
+
+JWT. Текущие квесты пользователя с прогрессом и сроком (`docs/DATABASE.md` §2, PET-07/PET-08).
+
+**Response `200`**
+
+```json
+[
+  {
+    "id": 1,
+    "code": "one_workout_today",
+    "title": "1 тренировка сегодня",
+    "description": "Выполни одну тренировку сегодня.",
+    "period": "daily",
+    "progress": 1,
+    "target": 1,
+    "xp_reward": 20,
+    "status": "completed",
+    "deadline": "2026-10-28T00:00:00Z",
+    "completed_at": "2026-10-27T18:40:05Z"
+  }
+]
+```
+
+`period`: `daily` \| `weekly`. `status`: `in_progress` \| `completed`. `deadline` = `period_start` + 1 сутки / 7 суток (UTC). Прогресс обновляется по событию `workout_completed`; при наступлении нового периода прогресс сбрасывается и награда выдаётся заново.
+
+### `GET /api/v1/pet/achievements`
+
+JWT. Только полученные достижения, новые сверху.
+
+**Response `200`**
+
+```json
+[
+  {
+    "id": 1,
+    "code": "first_workout",
+    "title": "Первая тренировка",
+    "description": "Завершена первая тренировка.",
+    "xp_reward": 10,
+    "earned_at": "2026-10-27T18:40:05Z"
+  }
+]
+```
+
+### `GET /api/v1/pet/events`
+
+JWT. История событий питомца (PET-09): `xp`, `level_up`, `mood`, `return_bonus`. Пишется при каждом изменении питомца — для статистики и отладки правил. Новые события сверху.
+
+Query: `limit` (default 50, максимум 200).
+
+**Response `200`**
+
+```json
+[
+  {
+    "id": 3,
+    "type": "xp",
+    "amount": 25,
+    "xp_total": 25,
+    "level": 1,
+    "mood": "happy",
+    "created_at": "2026-10-29T18:40:05Z"
+  }
+]
+```
+
+### `GET /api/v1/pet/stats`
+
+JWT. Статистика по журналу `pet_events` (PET-09).
+
+**Response `200`**
+
+```json
+{
+  "weekly_xp": 105
+}
+```
 
 ---
 
@@ -451,11 +531,11 @@ Query: `period=week` (default).
 }
 ```
 
-`kind` (информативно): `workout_completed` \| `workout_missed` \| `reminder` \| `motivation` \| `pet`.
+`kind` (информативно): `workout_completed` \| `workout_missed` \| `reminder` \| `motivation` \| `pet` \| `quest_completed` \| `achievement_earn`.
 
 ### `GET /api/v1/notifications`
 
-JWT. Query: `unread_only=true|false`.  
+JWT. Query: `unread_only=true|false`.
 **Response `200`:** `Notification[]` (новые сверху).
 
 ### `POST /api/v1/notifications/{id}/read`
@@ -495,13 +575,13 @@ JWT. Привязка устройства к пользователю.
 
 ### `GET /api/v1/telemetry/latest`
 
-JWT. Последняя точка текущего пользователя.  
-**Response `200`:** Telemetry DTO.  
+JWT. Последняя точка текущего пользователя.
+**Response `200`:** Telemetry DTO.
 `404` — ещё не было точек; клиент показывает «нет данных».
 
 ### `GET /api/v1/telemetry/history`
 
-JWT. Query: `from`, `to`, `limit`.  
+JWT. Query: `from`, `to`, `limit`.
 **Response `200`:** `TelemetryDTO[]`.
 
 ### `POST /api/v1/telemetry/simulate`
@@ -520,7 +600,23 @@ JWT. Генерация/публикация синтетической точк
 
 **Response `201`:** полный Telemetry DTO с `source: "simulator"`.
 
-### `POST /api/v1/telemetry/ingest` (план)
+### Подключение Raspberry Pi по коду сопряжения
+
+Телефон и узел Pi не связываются напрямую: оба работают только с backend.
+
+1. Приложение: `POST /api/v1/devices/pairing` (JWT, тело необязательно: `{"kind": "raspberry_pi", "name": "Pi в зале"}`) → `201 {"code": "525023", "kind": "raspberry_pi", "expires_at": "…"}`. Код одноразовый, живёт 10 минут; новый код отменяет предыдущий. Коды хранятся в памяти процесса backend.
+2. Узел Pi: `POST /api/v1/devices/pair` (без JWT) `{"code": "525023", "device_id": "pi-livingroom-01"}` → `200` как у `devices/register` (`device_id`, `device_token`, `user_id`, `kind: "raspberry_pi"`). `404` — код неверный, использован или истёк; `409` — `device_id` уже привязан к другому пользователю; `422` — код не из 6 цифр. Повторное сопряжение того же устройства выдаёт новый токен, старый перестаёт работать.
+3. Приложение видит устройство в `GET /api/v1/devices`.
+
+### `GET /api/v1/devices`
+
+JWT. Устройства пользователя без токенов: `[{"device_id", "name", "kind", "created_at", "last_seen_at"}]`, `last_seen_at` — время последней точки или `null`. `kind`: `simulator` | `raspberry_pi` | `health_connect`.
+
+### `DELETE /api/v1/devices/{device_id}`
+
+JWT. Отвязка: `204`; токен устройства больше не принимается (`ingest` → `401`), полученные точки остаются в истории. `404` — нет такого устройства у пользователя.
+
+### `POST /api/v1/telemetry/ingest`
 
 Открыт для устройств. Заголовок `X-Device-Token: <device_token>`. Пользователь определяется по токену, поле `user_id` в теле не передаётся.
 
@@ -537,13 +633,29 @@ JWT. Генерация/публикация синтетической точк
 }
 ```
 
-**Response `201`:** полный Telemetry DTO.  
+**Response `201`:** полный Telemetry DTO; `source` берётся из типа устройства.
+Повтор точки с тем же `device_id` и `timestamp` не сохраняется второй раз — `200` с уже сохранённой точкой (публикатор Pi доставляет «минимум один раз»).
 `401` — нет или неверный `X-Device-Token`; `403` — `device_id` не совпадает с токеном; `422` — отрицательные значения или `heart_rate` вне 30–230.
+
+### `POST /api/v1/telemetry/batch`
+
+JWT. Точки, которые приложение прочитало из Health Connect (туда пишут Mi Fitness, Zepp, Samsung Health, Fitbit и др.). Устройство `health-connect-<user_id>` (`kind: health_connect`) создаётся автоматически.
+
+```json
+{
+  "source": "health_connect",
+  "points": [
+    {"steps": 3500, "heart_rate": 88, "calories": 0, "timestamp": "2026-10-25T09:15:00Z"}
+  ]
+}
+```
+
+От 1 до 500 точек; `steps` — накопленные с местной полуночи, `heart_rate` — средний за 5 минут, 30–230. **Response `200`:** `{"device_id", "accepted", "duplicates"}`; точки с уже полученным `timestamp` пропускаются.
 
 ### `WS /api/v1/telemetry/ws`
 
-JWT: токен в query `?token=` или в заголовке при handshake (как реализует мост).  
-Сервер шлёт JSON Telemetry DTO по мере появления **сохранённых** точек (из `simulate` или `ingest`). Сейчас WS сам генерирует синтетику раз в `TELEMETRY_WS_INTERVAL_SECONDS` — переход на рассылку сохранённых точек — (план, решение D-17).
+JWT: токен в query `?token=` или в заголовке при handshake (как реализует мост).
+Сразу после подключения сервер шлёт последнюю сохранённую точку, затем — каждую новую (из `simulate`, `ingest`, `batch`), проверяя раз в `TELEMETRY_WS_INTERVAL_SECONDS`. Если у пользователя нет реальных устройств (`raspberry_pi`, `health_connect`), сервер в том же цикле генерирует точку симулятора — демо работает без железа.
 
 Клиент при обрыве: переподключение, иначе `GET /telemetry/latest` и статус «последнее известное».
 
@@ -562,18 +674,38 @@ JWT. Требует entitlement `ai_recommendations` (тариф Pro): инач�
 ```json
 {
   "id": 44,
-  "recommendation": "Попробуйте увеличить вес в приседаниях на 2.5 кг",
-  "reason": "стабильное выполнение плана на этой неделе",
+  "text": "Сделайте присед 3×10 с весом 42 кг",
+  "recommendation": "Сделайте присед 3×10 с весом 42 кг",
+  "reason": "все подходы выполнены, прибавка в пределах 2–10%",
+  "intensity": "moderate",
+  "sources": [{"id": "acsm-2009", "title": "Ratamess et al., 2009", "url": "https://doi.org/10.1249/MSS.0b013e3181915670"}],
+  "engine": "rag",
   "disclaimer": "Это не медицинская рекомендация",
   "created_at": "2026-09-12T18:45:00Z"
 }
 ```
 
-На MVP допустим mock / лёгкое правило. Модель с Colab — замена за тем же контрактом.
+Движок задаёт `AI_ENGINE` (D-33): `rules` — правила; `rag` — LLM + RAG-сервис в Colab ([`docs/ai/README.md`](ai/README.md)). Если Colab не настроен, не ответил за `AI_RAG_TIMEOUT_S` или вернул ошибку — ответ по правилам, код `200`, `engine: "rules"`. У ответа по правилам `intensity = null`, `sources = []`.
 
 ### `GET /api/v1/ai/history`
 
-JWT. **Response `200`:** массив тех же объектов.
+JWT. **Response `200`:** массив тех же объектов, новые сверху.
+
+### `POST /api/v1/ai/ask`
+
+JWT, тариф Pro. Свободный вопрос по базе знаний; в историю не пишется.
+
+**Request:** `{"question": "Сколько минут в неделю нужно двигаться?"}` (3–500 символов).
+
+**Response `200`:** `{"answer": "…", "sources": [{"id", "title", "url"}], "model": "qwen3:8b", "disclaimer": "…"}`.
+
+**Ошибки:** `403` — нет Pro; `422` — пустой или слишком длинный вопрос; `503` — `AI_ENGINE=rules` или Colab недоступен.
+
+### `GET /api/v1/ai/status`
+
+JWT. Проверка подключения к Colab, для отладки и демонстрации.
+
+**Response `200`:** `{"engine": "rag", "rag_configured": true, "rag_available": true, "model": "qwen3:8b"}`.
 
 ---
 
@@ -654,7 +786,7 @@ Checkout идёт через `PaymentProvider`. Sandbox-провайдер (MVP)
 
 Повтор с тем же `event_id`: `duplicate: true`, состояние не портится.
 
-`type`: `payment.succeeded` (а также синонимы `checkout.completed`, `subscription.activated`) → Pro; `payment.failed` → тариф не меняется, платёж `failed`.  
+`type`: `payment.succeeded` (а также синонимы `checkout.completed`, `subscription.activated`) → Pro; `payment.failed` → тариф не меняется, платёж `failed`.
 `403` — заголовок `X-Mock-Signature` отсутствует или не равен `MOCK_WEBHOOK_SECRET` из окружения.
 
 ---
@@ -666,6 +798,9 @@ Checkout идёт через `PaymentProvider`. Sandbox-провайдер (MVP)
 | `/auth`, `/profile`, `/schedule` | 1 Аккаунт и расписание |
 | `/workouts` | 2 Тренировки |
 | `/pet` | 3 Питомец |
+| `/pet/quests` | 3 Питомец |
+| `/pet/achievements` | 3 Питомец |
+| `/pet/events`, `/pet/stats` | 3 Питомец |
 | `/dashboard`, `/notifications` | 4 Дашборд и уведомления |
 | `/devices`, `/telemetry`, `/ai`, `/subscription` | 5 ИИ, устройства, подписка |
 
