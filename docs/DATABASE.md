@@ -16,6 +16,9 @@ erDiagram
   exercises |o--o{ workout_plan_exercises : "picked from"
   users ||--o{ workout_sessions : "performs"
   workout_plans ||--o{ workout_sessions : "template of"
+  workout_sessions ||--o{ workout_session_exercises : "includes"
+  exercises |o--o{ workout_session_exercises : "picked from"
+  workout_session_exercises ||--o{ exercise_sets : "logged as"
   scheduled_workouts |o--o{ workout_sessions : "started from"
   scheduled_workouts }o--o| workout_plans : "uses"
   users ||--|| pets : "has"
@@ -89,6 +92,25 @@ erDiagram
     datetime completed_at
     int duration_seconds
     int xp_awarded
+  }
+  workout_session_exercises {
+    int id PK
+    int session_id FK
+    int exercise_id FK "nullable, ON DELETE SET NULL"
+    string name "копия из плана"
+    int order_index
+    string status "pending | done | skipped"
+  }
+  exercise_sets {
+    int id PK
+    int session_exercise_id FK
+    int set_index "UK вместе с session_exercise_id"
+    int target_reps
+    float target_weight_kg
+    int actual_reps "nullable"
+    float actual_weight_kg "nullable"
+    string status "pending | done | skipped"
+    datetime completed_at "nullable"
   }
   pets {
     int id PK
@@ -212,7 +234,7 @@ erDiagram
 | Таблица | Модуль (папка) | Владелец |
 |---|---|---|
 | `users`, `profiles`, `scheduled_workouts` | `auth` | @NastyaZhilinaRis2 |
-| `workout_plans`, `workout_plan_exercises`, `workout_sessions` | `workouts` | @Hupubu |
+| `exercises`, `workout_plans`, `workout_plan_exercises`, `workout_sessions`, `workout_session_exercises`, `exercise_sets` | `workouts` | @Hupubu |
 | `pets`, `pet_events`, `quests`, `user_quests`, `achievements`, `user_achievements` | `pet` | @SonyAkb |
 | `notifications` | `notifications` | @Ananasic07 |
 | `devices`, `telemetry_points` | `devices` | @MouseViolin |
@@ -226,28 +248,7 @@ erDiagram
 
 ```mermaid
 erDiagram
-  workout_sessions ||--o{ workout_session_exercises : "includes"
-  workout_session_exercises ||--o{ exercise_sets : "logged as"
 
-  workout_session_exercises {
-    int id PK
-    int session_id FK
-    int exercise_id FK "nullable"
-    string name
-    int order_index
-    string status "pending | done | skipped"
-  }
-  exercise_sets {
-    int id PK
-    int session_exercise_id FK
-    int set_index
-    int target_reps
-    float target_weight_kg
-    int actual_reps
-    float actual_weight_kg
-    string status "done | skipped"
-    datetime completed_at
-  }
 ```
 
 Также планируется:
@@ -279,3 +280,5 @@ erDiagram
 Миграция `0002_quest_achievement_tables` создаёт таблицы квестов и достижений (§1) и заполняет справочники предустановленными записями (2 квеста, 3 достижения); `downgrade` удаляет таблицы вместе с seed-строками.
 
 Миграция `0005_pet_events` создаёт журнал событий питомца `pet_events` (§1, PET-09): `id`, `pet_id` FK, `user_id` FK, `type` (`xp | level_up | mood | return_bonus`), `amount`, `xp_total`, `level`, `mood`, `created_at`; индексы на `pet_id`, `user_id`, `type`, `created_at` — под статистику «сколько XP за неделю» и отладку правил; `downgrade` удаляет таблицу.
+
+Миграция `0007_session_exercises_and_sets` добавляет `workout_session_exercises` и `exercise_sets` (уникальность `session_exercise_id` + `set_index`).
