@@ -1,7 +1,7 @@
 """session exercises and sets
 
-Revision ID: 0007
-Revises: 0006
+Revision ID: 0009
+Revises: 0008
 Create Date: 2026-10-26 01:50:26.191657
 
 """
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '0007'
-down_revision: Union[str, None] = '0006'
+revision: str = '0009'
+down_revision: Union[str, None] = '0008'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
