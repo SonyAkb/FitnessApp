@@ -10,6 +10,7 @@ _ALL_VARS = [
     "MPU6050_ADDR",
     "MAX30102_ADDR",
     "MAX30102_INT_PIN",
+    "MAX30102_LED_PA",
     "GPIOZERO_PIN_FACTORY",
     "SAMPLE_RATE_HZ",
     "STEP_THRESHOLD_G",
@@ -48,6 +49,7 @@ def test_defaults_when_env_not_set(monkeypatch):
     assert config.mpu6050_addr == 0x68
     assert config.max30102_addr == 0x57
     assert config.max30102_int_pin == 17
+    assert config.max30102_led_pa == 0x23
     assert config.gpiozero_pin_factory is None
     assert config.sample_rate_hz == 50.0
     assert config.step_threshold_g == 0.15
@@ -86,6 +88,7 @@ def test_env_overrides_are_applied(monkeypatch):
     monkeypatch.setenv("SAMPLE_RATE_HZ", "100")
     monkeypatch.setenv("STEP_SMOOTHING_SAMPLES", "5")
     monkeypatch.setenv("HR_MIN_SIGNAL_RATIO", "0.05")
+    monkeypatch.setenv("MAX30102_LED_PA", "0x3F")
 
     config = load_config()
 
@@ -96,6 +99,7 @@ def test_env_overrides_are_applied(monkeypatch):
     assert config.sample_rate_hz == 100.0
     assert config.step_smoothing_samples == 5
     assert config.hr_min_signal_ratio == 0.05
+    assert config.max30102_led_pa == 0x3F
 
 
 def test_device_token_has_no_default_value(monkeypatch):

@@ -47,6 +47,7 @@ class Config:
     mpu6050_addr: int
     max30102_addr: int
     max30102_int_pin: int
+    max30102_led_pa: int
     gpiozero_pin_factory: str | None
     sample_rate_hz: float
     step_threshold_g: float
@@ -85,6 +86,9 @@ def load_config() -> Config:
         mpu6050_addr=_env_int("MPU6050_ADDR", 0x68),
         max30102_addr=_env_int("MAX30102_ADDR", 0x57),
         max30102_int_pin=_env_int("MAX30102_INT_PIN", 17),
+        # Ток светодиодов MAX30102: 0.2 мА на единицу (даташит, Table 8);
+        # 0x23 ≈ 7 мА, как по умолчанию в драйвере ядра Linux. Подбирается на плате.
+        max30102_led_pa=_env_int("MAX30102_LED_PA", 0x23),
         gpiozero_pin_factory=_env_str("GPIOZERO_PIN_FACTORY", None),
         sample_rate_hz=_env_float("SAMPLE_RATE_HZ", 50.0),
         step_threshold_g=_env_float("STEP_THRESHOLD_G", 0.15),
