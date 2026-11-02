@@ -50,7 +50,7 @@ package "Система FitQuest (разрабатывает команда)" {
 
 database "PostgreSQL" as Db
 component "Sandbox-провайдер оплаты\n(mock за PaymentProvider)" <<external>> as Pay
-component "Google Colab\n(обучение модели)" <<external>> as Colab
+component "Google Colab\n(LLM + RAG)" <<external>> as Colab
 component "Датчики I2C\nMPU6050, MAX30102" <<external>> as Sensors
 
 User --> App : работает с приложением
@@ -72,7 +72,7 @@ Ai ..> Subscription : can_use(ai_recommendations)
 
 Subscription --> Pay : create_checkout()
 Pay ..> WebhookApi : payment.succeeded /\npayment.failed
-Colab ..> Ai : файл модели (план)
+Ai ..> Colab : POST /v1/recommend\nчерез туннель (план)
 
 Backend --> Db : SQLAlchemy: каждый модуль\nчитает и пишет только свои таблицы
 
