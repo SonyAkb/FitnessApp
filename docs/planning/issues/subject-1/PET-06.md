@@ -4,7 +4,7 @@ title: "[Питомец] Настроение по дням без тренир�
 assignee: SonyAkb
 labels: [subject-1, module:pet, type:feature, sprint-4]
 milestone: "Sprint 4"
-status: todo
+status: done
 story_points: 3
 related_us: [US-D2]
 ---
@@ -17,8 +17,8 @@ related_us: [US-D2]
 - Android: картинка для `sleeping`.
 
 ## Критерии готовности
-- [ ] Тесты с управляемыми часами на каждый порог
-- [ ] Событие возвращения
+- [x] Тесты с управляемыми часами на каждый порог (`tests/test_pet_mood.py`: 1/2 → neutral, 3/13 → sad, 14+ → sleeping; `frozen_clock` — monkeypatch `utc_now`)
+- [x] Событие возвращения (`pet_returned` → уведомление «Рад тебя видеть!», +10 XP)
 
 ## Зависимости
 - [PET-05](PET-05.md) — [Питомец] Правила XP: бонус серии, порог level×100, максимум 50

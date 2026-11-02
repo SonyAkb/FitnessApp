@@ -1,6 +1,6 @@
 AGENTS.md — Team Development Rules
 
-> **Актуально на 14.10.2026:** основной клиент — Android (`mobile-fit-baddy/`), React-клиент и Redis не используются, узел Raspberry Pi — `pi-fit-baddy/`. Где этот файл говорит о веб-клиенте или React, это устарело. Источник правды — `docs/ARCHITECTURE.md` и `docs/planning/DECISIONS.md`.
+> **Актуально на 14.10.2026:** основной клиент — Android (`mobile-fit-baddy/`), React-клиент и Redis не используются, узел Raspberry Pi — `pi-fit-baddy/`. Где этот файл говорит о веб-клиенте или React, это устарело. Источник правды — `docs/ARCHITECTURE.md` и `docs/planning/DECISIONS.md`. ИИ — LLM + RAG в Colab, реализация `RagRecommendationService` (D-33).
 
 Educational Team Project
 

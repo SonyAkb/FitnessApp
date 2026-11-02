@@ -4,7 +4,7 @@ title: "[Устройства] Приём телеметрии от Raspberry Pi
 assignee: MouseViolin
 labels: [subject-1, module:devices, type:feature, sprint-4]
 milestone: "Sprint 4"
-status: todo
+status: done
 story_points: 3
 related_us: [US-H1]
 ---
@@ -17,8 +17,8 @@ Endpoint для публикатора Pi с аутентификацией по
 - `user_id` берётся из `devices`.
 
 ## Критерии готовности
-- [ ] Тесты на все коды ответа
-- [ ] Точка с `source=raspberry_pi` видна в `latest`
+- [x] Тесты на все коды ответа
+- [x] Точка с `source=raspberry_pi` видна в `latest`
 
 ## Зависимости
 - [DEV-04](DEV-04.md) — [Устройства] Валидация телеметрии, фильтр периода, защита device_id

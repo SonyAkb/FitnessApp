@@ -97,19 +97,20 @@
 | US | Критерий | Модуль | Владелец | Статус | Где в коде | Тест | Комментарий |
 |---|---|---|---|---|---|---|---|
 | US-D1 | 1. Питомец на главном, уровень | pet | SonyAkb | ✅ | `HomeFragment` (`fox`, `level`, `xpBar`), `UiFormat.foxForMood` | вручную | |
-| US-D1 | 2. Уровни 1–50, +10 XP за тренировку, +5 за серию, прогресс-бар | pet | SonyAkb | 🟡 | `pet/service.py` `XP_PER_WORKOUT=25`, `XP_PER_LEVEL=100` | T:`test_xp_and_level_after_complete` | Противоречие П-7: числа XP не совпадают; бонуса за серию и потолка 50 нет |
+| US-D1 | 2. Уровни 1–50, +10 XP за тренировку, +5 за серию, прогресс-бар | pet | SonyAkb | ✅ | `pet/service.py`: `XP_PER_WORKOUT=25`, `STREAK_BONUS_XP=5`, `MAX_LEVEL=50`, пороги `level×100` (D-13) | T:`test_pet.py::test_streak_bonus_adds_5_xp_per_extra_day`, `test_cumulative_level_threshold_is_level_times_100`, `test_level_capped_at_max` | Реализовано по D-13 в PET-05; Android-прогресс-бар (`HomeFragment`) — AND-14 |
 | US-D1 | 3. Анимация получения опыта, сообщения питомца | pet | SonyAkb | 🟡 | `fox_idle_animation.xml`, кадры в `drawable-nodpi` | вручную | Анимация простоя есть; анимации XP и реплик нет |
 | US-D1 | 4. Статистика: уровень, опыт, тренировки, дни без пропусков, общее время | pet | SonyAkb | 🟡 | `PetOut` (xp, level, streak) | — | Нет общего времени/кол-ва тренировок в `/pet` |
 | US-D2 | 1. Фиксация пропуска, дни с последней тренировки | pet/schedule | SonyAkb | 🟡 | `POST /schedule/{id}/miss` → `WorkoutMissed`, `Pet.last_activity_date` | — | Пропуск только **вручную**; автоматического детектора нет |
-| US-D2 | 2. 7 дней → грустит, 14+ → спит | pet | SonyAkb | ❌ | `apply_workout_missed` → сразу `sad` | — | Противоречие П-3; состояния `sleeping` нет |
+| US-D2 | 2. 7 дней → грустит, 14+ → спит | pet | SonyAkb | ✅ | `refresh_mood`/`mood_for_days_without_training` (D-14: 1–2 neutral, 3–13 sad, 14+ sleeping) при `GET /pet` и `workout_missed` | `tests/test_pet_mood.py::test_refresh_mood_at_each_threshold`, `test_get_pet_endpoint_recomputes_mood` | Фоновых задач нет — расчёт при запросе (PET-06) |
 | US-D2 | 3. Сообщения на 1/2/3/5/7+ день | pet/notifications | SonyAkb | ❌ | — | — | |
 | US-D2 | 4. Push на 2-й и 5-й день | notifications | Ananasic07 | ❌ | — | — | Противоречие П-3, П-12 (push = Won't) |
-| US-D2 | 5. Возвращение: «Рад тебя видеть!», бонус XP | pet | SonyAkb | ❌ | — | — | |
-| US-D3 | 1. Список квестов: условие, прогресс, награда, срок | pet | SonyAkb | ❌ | — | — | Нет `quests`, `user_quests` |
-| US-D3 | 2. Типы: ежедневные/еженедельные/достижения | pet | SonyAkb | ❌ | — | — | |
-| US-D3 | 3. Автообновление прогресса, уведомление | pet | SonyAkb | ❌ | — | — | |
-| US-D3 | 4. Награды: XP, значки | pet | SonyAkb | ❌ | — | — | Нет `achievements`, `user_achievements` |
-| US-D3 | 5. История достижений с датой | pet | SonyAkb | ❌ | — | — | |
+| US-D2 | 5. Возвращение: «Рад тебя видеть!», бонус XP | pet | SonyAkb | ✅ | `handle_return_bonus`: +10 XP, событие `pet_returned` → уведомление «Рад тебя видеть!» | `tests/test_pet_mood.py::test_return_after_3_days_awards_bonus_and_event`, `test_return_notification_is_created` | Разрыв >= 3 дня или пробуждение из `sleeping` (флаг `was_sleeping`) (PET-06) |
+| US-D3 | 1. Список квестов: условие, прогресс, награда, срок | pet | SonyAkb | ✅ | `GET /pet/quests`, `pet/service.quest_out` | T:`test_quests_endpoint_shape_and_auth` | |
+| US-D3 | 2. Типы: ежедневные/еженедельные/достижения | pet | SonyAkb | ✅ | `quests.period=daily\|weekly`, `achievements` | T:`test_daily_quest_completes_on_first_workout_and_awards_xp`, `test_weekly_quest_needs_three_workouts` | |
+| US-D3 | 3. Автообновление прогресса, уведомление | pet | SonyAkb | ✅ | `pet/handlers.on_workout_completed` → `apply_quest_progress`, `quest_completed` → notifications | T:`test_full_event_path_updates_quest_progress`, `test_quest_completion_creates_notification` | |
+| US-D3 | 4. Награды: XP, значки | pet | SonyAkb | ✅ | `award_xp` (квест + достижение) | T:`test_achievement_xp_is_awarded` | |
+| US-D3 | 5. История достижений с датой | pet | SonyAkb | ✅ | `GET /pet/achievements` (`earned_at`) | T:`test_achievements_endpoint_returns_earn|
+
 
 ### E — Мои результаты (@Ananasic07)
 
@@ -156,7 +157,7 @@
 | US-H1 | 2. Синхронизация: при открытии, фоновая, ручная, индикатор | devices | MouseViolin | 🟡 | WS + REST-поллинг (`btnPoll`), статус-строка | вручную | Фоновой синхронизации нет |
 | US-H1 | 3. «Активность»: сегодня, график неделя/месяц | devices | MouseViolin | 🟡 | `TelemetryFragment` (latest + список history) | вручную | Графика нет |
 | US-H2 | 1. Анализ: частота, прогресс, время с последней, цели | ai | MouseViolin | 🟡 | `ai/service.rule_based_text(completed_count)` | — | Учитывается только количество тренировок |
-| US-H2 | 2. Рекомендация: программа, интенсивность, обоснование | ai | MouseViolin | 🟡 | `GET /ai/recommend` → `text`, `reason` (константа), `disclaimer` | — | Нет поля интенсивности; `reason` одинаковый всегда. Модели из Colab нет |
+| US-H2 | 2. Рекомендация: программа, интенсивность, обоснование | ai | MouseViolin | 🟡 | `GET /ai/recommend` → `text`, `reason` (константа), `disclaimer` | — | Нет поля интенсивности; `reason` одинаковый всегда. LLM + RAG в Colab — AI-03 |
 
 > В README критерии US-H2 обрываются на п.2 — если были ещё пункты, их нужно восстановить.
 
@@ -395,7 +396,7 @@ flowchart LR
 | Тренировки — Hupubu | Каталог `exercises` (сид + поиск/фильтр); `PATCH/DELETE` планов; `workout_session_exercises` + `exercise_sets` (факт подходов); экран выполнения на Android (чек-лист, таймер отдыха, следующий/предыдущий); пагинация истории; XP убрать из модуля тренировок |
 | Питомец — SonyAkb | Правила XP/уровней в `pet` (П-7/П-8); mood по дням без тренировок + `sleeping` (П-3); квесты/достижения (`quests`, `user_quests`, `achievements`, `user_achievements`) с 3–5 предустановленными; экран квестов; бонус за возвращение |
 | Дашборд/уведомления — Ananasic07 | `period` week/month; честные `steps_7d`, `workouts_by_day`; календарь активности (API + экран); `unread_only`, `limit`; база фраз питомца; триггеры 2/5/7/14 дней; локальные уведомления Android о тренировке; простой график на экране прогресса |
-| ИИ/устройства/подписка — MouseViolin | Подпись webhook (Д-1); `PaymentProvider`/`SandboxPaymentProvider`, checkout → webhook; `entitlements.can_use` + 403 для AI на Free (Д-3), лимит 2 программ; экран тарифов; `reason`/интенсивность в рекомендации; модель из Colab за интерфейсом `RecommendationService` (опционально — `MLRecommendationService`); `ingest` endpoint; исправить Д-5, Д-6 |
+| ИИ/устройства/подписка — MouseViolin | Подпись webhook (Д-1); `PaymentProvider`/`SandboxPaymentProvider`, checkout → webhook; `entitlements.can_use` + 403 для AI на Free (Д-3), лимит 2 программ; экран тарифов; `reason`/интенсивность в рекомендации; модель из Colab за интерфейсом `RecommendationService` (`RagRecommendationService`, LLM + RAG, D-33); `ingest` endpoint; исправить Д-5, Д-6 |
 | Общее | Alembic + первая миграция; тесты на PostgreSQL; CI; README/диаграммы; `docs/labs/LAB_COMPLIANCE.md`; UML/ArchiMate-файл для лабы 3; бэклог со story points и доска (лаба 4) |
 
 ### Предлагаю явно вынести из MVP (нужно ваше согласие)

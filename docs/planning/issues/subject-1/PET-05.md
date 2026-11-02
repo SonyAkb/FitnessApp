@@ -4,7 +4,7 @@ title: "[Питомец] Правила XP: бонус серии, порог le
 assignee: SonyAkb
 labels: [subject-1, module:pet, type:feature, sprint-4]
 milestone: "Sprint 4"
-status: todo
+status: done
 story_points: 2
 related_us: [US-D1]
 ---

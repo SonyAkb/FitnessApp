@@ -1,5 +1,6 @@
 package com.fitquest.app.ui.telemetry;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -18,11 +19,12 @@ import com.fitquest.app.FitQuestApp;
 import com.fitquest.app.api.ApiCalls;
 import com.fitquest.app.api.ApiClient;
 import com.fitquest.app.api.ApiConfig;
-import com.fitquest.app.api.dto.DeviceRegisterRequest;
 import com.fitquest.app.api.dto.TelemetryDto;
 import com.fitquest.app.databinding.FragmentTelemetryBinding;
 import com.fitquest.app.databinding.ItemSessionBinding;
 import com.fitquest.app.ui.UiFormat;
+import com.fitquest.app.ui.devices.DevicesActivity;
+import com.fitquest.app.ui.devices.SourceLabels;
 import com.fitquest.app.ws.TelemetryWebSocket;
 
 import java.util.ArrayList;
@@ -60,7 +62,7 @@ public class TelemetryFragment extends Fragment {
         binding.history.setLayoutManager(new LinearLayoutManager(requireContext()));
         binding.history.setAdapter(adapter);
         binding.btnSimulate.setOnClickListener(v -> simulate());
-        binding.btnRegister.setOnClickListener(v -> registerDevice());
+        binding.btnSources.setOnClickListener(v -> startActivity(new Intent(requireContext(), DevicesActivity.class)));
         binding.btnPoll.setOnClickListener(v -> startPolling("Manual REST poll"));
         binding.swipe.setOnRefreshListener(this::refreshAll);
     }
@@ -161,8 +163,8 @@ public class TelemetryFragment extends Fragment {
         binding.heart.setText(UiFormat.dash(dto.heart_rate));
         binding.steps.setText(UiFormat.dash(dto.steps));
         binding.calories.setText(UiFormat.dash(dto.calories));
-        binding.source.setText((dto.source == null ? "unknown" : dto.source)
-                + (dto.timestamp == null ? "" : " · " + dto.timestamp));
+        binding.source.setText(SourceLabels.label(dto.source)
+                + (dto.timestamp == null ? "" : " · " + SourceLabels.shortTime(dto.timestamp)));
         binding.hint.setText("");
     }
 
@@ -171,17 +173,6 @@ public class TelemetryFragment extends Fragment {
             toast("Simulated a beat");
             bindLatest(dto, "Simulated sample");
             refreshAll();
-        }, this::toast);
-    }
-
-    private void registerDevice() {
-        ApiCalls.enqueue(ApiClient.get().registerDevice(new DeviceRegisterRequest("FitQuest emulator")), device -> {
-            if (device != null && device.device_id != null) {
-                FitQuestApp.get().session().setDeviceId(device.device_id);
-                toast("Device " + device.device_id + " registered");
-            } else {
-                toast("Device registered");
-            }
         }, this::toast);
     }
 
@@ -209,8 +200,8 @@ public class TelemetryFragment extends Fragment {
         public void onBindViewHolder(@NonNull VH holder, int position) {
             TelemetryDto t = history.get(position);
             holder.binding.title.setText("♥ " + UiFormat.dash(t.heart_rate) + "  ·  " + UiFormat.dash(t.steps) + " steps");
-            holder.binding.meta.setText(UiFormat.dash(t.calories) + " kcal"
-                    + (t.timestamp == null ? "" : " · " + t.timestamp));
+            holder.binding.meta.setText(UiFormat.dash(t.calories) + " kcal · " + SourceLabels.label(t.source)
+                    + (t.timestamp == null ? "" : " · " + SourceLabels.shortTime(t.timestamp)));
         }
 
         @Override

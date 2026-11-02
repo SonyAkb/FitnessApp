@@ -6,14 +6,14 @@
 |---|---|---|---|---|
 | backend | бизнес-правила сервисов, API-контракт, события, безопасность | pytest + FastAPI `TestClient` | `cd backend-fit-baddy && pytest` | да: PostgreSQL 16 и SQLite |
 | Android | логика без UI: валидация форм, разбор DTO, отображение настроения | JUnit 4 | `cd mobile-fit-baddy && ./gradlew testDebugUnitTest` | да + `lintDebug`, `assembleDebug` |
-| Raspberry Pi | шина и виртуальные чипы, драйверы, шаги и пульс, API `/device/*`, переносимость | pytest, `SENSOR_MODE=mock` | `cd pi-fit-baddy && SENSOR_MODE=mock GPIOZERO_PIN_FACTORY=mock pytest` | да, когда в папке появится код |
+| Raspberry Pi | шина и виртуальные чипы, драйверы, шаги и пульс, API `/device/*`, переносимость | pytest, `SENSOR_MODE=mock` | `cd pi-fit-baddy && SENSOR_MODE=mock GPIOZERO_PIN_FACTORY=mock pytest` | да |
 | Сквозной сценарий | вход → тренировка → питомец → дашборд → уведомление → телеметрия | pytest + ручной прогон на эмуляторе | `pytest tests/test_api.py::test_full_demo_path` | да (API-часть) |
 
 ## Backend (`backend-fit-baddy/tests`)
 
 **Уровни.**
 
-- *Unit* — функции сервисов на реальной сессии БД, без HTTP: правила питомца (`test_pet.py`), `can_use` и провайдер оплаты (`test_ai_subscription.py`), шина событий (`test_events.py`), контракт `TelemetryDTO` (`test_devices.py`).
+- *Unit* — функции сервисов на реальной сессии БД, без HTTP: правила питомца (`test_pet.py`), журнал событий питомца и `weekly_xp` (`test_pet_events.py`), `can_use` и провайдер оплаты (`test_ai_subscription.py`), шина событий (`test_events.py`), контракт `TelemetryDTO` (`test_devices.py`).
 - *API / интеграционные* — запросы через `TestClient` к приложению целиком, с настоящей БД и обработчиками событий: остальные тесты.
 - *Сквозной* — `test_api.py::test_full_demo_path`.
 
@@ -34,7 +34,9 @@ docker stop fq-test-pg
 | `test_schedule.py` | auth/schedule — @NastyaZhilinaRis2 | создание слота, запрет прошлого, фильтр `from/to`, изменение/удаление, пропуск и повторный пропуск, чужие слоты |
 | `test_workouts.py` | workouts — @Hupubu | план без упражнений, обязательные поля, повторный старт, длительность, чужая сессия, пагинация истории |
 | `test_exercises_catalog.py` | workouts — @Hupubu | каталог упражнений (WKT-06): список и сортировка, поиск по подстроке без учёта регистра (кириллица), фильтр по группе мышц и их сочетание, пустой результат, неверная группа → 422, доступ без токена → 401, `exercise_id` в плане (создание и PATCH, неизвестный id → 422, свободный текст без id) |
-| `test_pet.py` | pet — @SonyAkb | XP, уровень, серия (тот же день / разрыв), пропуск, границы энергии, `xp_to_next_level`, согласованность XP с дашбордом |
+| `test_pet_quests.py` | pet — @SonyAkb | каждый квест (daily, weekly, повторный complete в тот же день, сброс daily/weekly), каждое достижение (+ запрет дублей), награды XP, оба GET-эндпоинта и 401, уведомление о завершении квеста |
+| `test_pet_events.py` | pet — @SonyAkb | журнал `pet_events` (PET-09): завершение тренировки пишет событие `xp`, `level_up` на пороге, `mood` при смене настроения, `return_bonus`; статистика `weekly_xp`; `GET /pet/events` и `GET /pet/stats` (в т.ч. путь через API) |
+| `test_pet.py` | pet — @SonyAkb | правила XP по D-13: базовые 25 за тренировку, бонус серии +5×(streak−1), накопительный порог `level×100`, потолок `MAX_LEVEL=50`, `xp_to_next_level`, чистота публичной `xp_for_workout` (WKT-09), стрик/пропуск/энергия |
 | `test_notifications.py` | notifications, dashboard — @Ananasic07 | уведомления по событиям, порядок, прочитанные, `unread_only`, `limit`, чужие уведомления, поля сводки |
 | `test_devices.py` | devices — @MouseViolin | контракт `TelemetryDTO` (одинаковый для simulator и raspberry_pi), валидация, 404 без точек, повторная/чужая регистрация устройства, фильтр истории, WebSocket |
 | `test_ai_subscription.py` | ai, subscription — @MouseViolin | Free по умолчанию, ИИ только на Pro, checkout, подпись webhook, идемпотентность, неуспешная оплата, `can_use` |
@@ -69,7 +71,7 @@ Unit-тесты без эмулятора проверяют код, в кото
 - переносимость: драйверы работают с подменённой шиной того же интерфейса;
 - публикатор: формирует `TelemetryDTO` с `source=raspberry_pi` и калориями по шагам; при недоступном backend — буферизует.
 
-Время в тестах — управляемые часы (`Clock`), без `time.sleep`. Код модуля ещё не написан (задачи `PI-*`).
+Время в тестах — управляемые часы (`Clock`), без `time.sleep`.
 
 ## Ручные проверки
 
@@ -87,6 +89,8 @@ Unit-тесты без эмулятора проверяют код, в кото
 | M-08 | Pack → «Checkout» → Trail → «Рекомендация» | Тариф Pro; рекомендация с предупреждением «не медицинский совет» | US-G2, AC10.1, AC11.8 |
 | M-09 | Swagger `/docs`: webhook без заголовка `X-Mock-Signature` | 403 | AC11.6 |
 | M-10 | Pi на плате: `i2cdetect -y 1`, затем `SENSOR_MODE=real` | Адреса 0x68 и 0x57; `/device/status` → `connected: true`; пульс в пределах ±5 от эталонного пульсометра | `docs/pi.md` §9.2 |
+| M-11 | Live watch → «Источник данных» → «Connect Raspberry Pi»; запустить узел с показанным кодом (`PAIRING_CODE=<код>`, `PUBLISH_ENABLED=true`, `BACKEND_URL` — адрес backend: для эмулятора `10.0.2.2`, для телефона IP компьютера в Wi-Fi) | В списке «Connected» появился узел; в Live watch идут точки, шаги растут, источник отмечен как «Raspberry Pi», а не «Симулятор» | US-H1, AND-09 |
+| M-12 | После M-11 отвязать узел в приложении | Узел получает 401 и пишет об этом в лог; новые точки от Pi не приходят | AND-09, DEV-05 |
 
 Результаты ручных проверок перед сдачей записываются в описание PR или в issue спринта.
 
