@@ -266,9 +266,7 @@ erDiagram
 
 ## 4. Миграции
 
-Миграции лежат в `backend-fit-baddy/alembic/versions/`. Миграция `0001_initial` создаёт схему из §1 (14 таблиц) `downgrade` удаляет её.
-Миграция `0002_exercises_catalog` добавляет таблицу `exercises` и колонку `workout_plan_exercises.exercise_id`; `0003_seed_exercises` заполняет каталог начальным набором. 
-Служебная таблица `alembic_version` хранит номер применённой миграции и в схему приложения не входит.
+Миграции лежат в `backend-fit-baddy/alembic/versions/`. 
 
 - Адрес БД берётся из `settings.DATABASE_URL`.
 - В Docker миграции применяются при старте backend (`alembic upgrade head` перед `uvicorn`).
@@ -277,8 +275,19 @@ erDiagram
 - Тесты миграции не используют: схема создаётся через `Base.metadata.create_all` (SQLite in-memory).
 - Поиск по каталогу (`GET /api/v1/workouts/exercises`) фильтрует по `q` в Python через `casefold()`, так как `LIKE`/`lower()` в SQLite не понимают кириллицу.
 
-Миграция `0002_quest_achievement_tables` создаёт таблицы квестов и достижений (§1) и заполняет справочники предустановленными записями (2 квеста, 3 достижения); `downgrade` удаляет таблицы вместе с seed-строками.
+`0001_initial` создаёт схему из §1 (14 таблиц) `downgrade` удаляет её.
 
-Миграция `0005_pet_events` создаёт журнал событий питомца `pet_events` (§1, PET-09): `id`, `pet_id` FK, `user_id` FK, `type` (`xp | level_up | mood | return_bonus`), `amount`, `xp_total`, `level`, `mood`, `created_at`; индексы на `pet_id`, `user_id`, `type`, `created_at` — под статистику «сколько XP за неделю» и отладку правил; `downgrade` удаляет таблицу.
+`0002_exercises_catalog` добавляет таблицу `exercises` и колонку `workout_plan_exercises.exercise_id`; 
 
-Миграция `0007_session_exercises_and_sets` добавляет `workout_session_exercises` и `exercise_sets` (уникальность `session_exercise_id` + `set_index`).
+`0003_seed_exercises` заполняет каталог начальным набором. 
+Служебная таблица `alembic_version` хранит номер применённой миграции и в схему приложения не входит.
+
+`0005_pet_events` создаёт журнал событий питомца `pet_events` (§1, PET-09): `id`, `pet_id` FK, `user_id` FK, `type` (`xp | level_up | mood | return_bonus`), `amount`, `xp_total`, `level`, `mood`, `created_at`; индексы на `pet_id`, `user_id`, `type`, `created_at` — под статистику «сколько XP за неделю» и отладку правил; `downgrade` удаляет таблицу.
+
+`0006_quest_achievement_tables` создаёт таблицы квестов и достижений (§1) и заполняет справочники предустановленными записями (2 квеста, 3 достижения); `downgrade` удаляет таблицы вместе с seed-строками.
+
+`0007_user_quest_progress_tracking`
+
+`0008_ai_recommendation_details`
+
+`0009_session_exercises_and_sets` добавляет `workout_session_exercises` и `exercise_sets` (уникальность `session_exercise_id` + `set_index`).
