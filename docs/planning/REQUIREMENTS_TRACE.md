@@ -157,7 +157,7 @@
 | US-H1 | 2. Синхронизация: при открытии, фоновая, ручная, индикатор | devices | MouseViolin | 🟡 | WS + REST-поллинг (`btnPoll`), статус-строка | вручную | Фоновой синхронизации нет |
 | US-H1 | 3. «Активность»: сегодня, график неделя/месяц | devices | MouseViolin | 🟡 | `TelemetryFragment` (latest + список history) | вручную | Графика нет |
 | US-H2 | 1. Анализ: частота, прогресс, время с последней, цели | ai | MouseViolin | 🟡 | `ai/service.rule_based_text(completed_count)` | — | Учитывается только количество тренировок |
-| US-H2 | 2. Рекомендация: программа, интенсивность, обоснование | ai | MouseViolin | 🟡 | `GET /ai/recommend` → `text`, `reason` (константа), `disclaimer` | — | Нет поля интенсивности; `reason` одинаковый всегда. Модели из Colab нет |
+| US-H2 | 2. Рекомендация: программа, интенсивность, обоснование | ai | MouseViolin | 🟡 | `GET /ai/recommend` → `text`, `reason` (константа), `disclaimer` | — | Нет поля интенсивности; `reason` одинаковый всегда. LLM + RAG в Colab — AI-03 |
 
 > В README критерии US-H2 обрываются на п.2 — если были ещё пункты, их нужно восстановить.
 
@@ -396,7 +396,7 @@ flowchart LR
 | Тренировки — Hupubu | Каталог `exercises` (сид + поиск/фильтр); `PATCH/DELETE` планов; `workout_session_exercises` + `exercise_sets` (факт подходов); экран выполнения на Android (чек-лист, таймер отдыха, следующий/предыдущий); пагинация истории; XP убрать из модуля тренировок |
 | Питомец — SonyAkb | Правила XP/уровней в `pet` (П-7/П-8); mood по дням без тренировок + `sleeping` (П-3); квесты/достижения (`quests`, `user_quests`, `achievements`, `user_achievements`) с 3–5 предустановленными; экран квестов; бонус за возвращение |
 | Дашборд/уведомления — Ananasic07 | `period` week/month; честные `steps_7d`, `workouts_by_day`; календарь активности (API + экран); `unread_only`, `limit`; база фраз питомца; триггеры 2/5/7/14 дней; локальные уведомления Android о тренировке; простой график на экране прогресса |
-| ИИ/устройства/подписка — MouseViolin | Подпись webhook (Д-1); `PaymentProvider`/`SandboxPaymentProvider`, checkout → webhook; `entitlements.can_use` + 403 для AI на Free (Д-3), лимит 2 программ; экран тарифов; `reason`/интенсивность в рекомендации; модель из Colab за интерфейсом `RecommendationService` (опционально — `MLRecommendationService`); `ingest` endpoint; исправить Д-5, Д-6 |
+| ИИ/устройства/подписка — MouseViolin | Подпись webhook (Д-1); `PaymentProvider`/`SandboxPaymentProvider`, checkout → webhook; `entitlements.can_use` + 403 для AI на Free (Д-3), лимит 2 программ; экран тарифов; `reason`/интенсивность в рекомендации; модель из Colab за интерфейсом `RecommendationService` (`RagRecommendationService`, LLM + RAG, D-33); `ingest` endpoint; исправить Д-5, Д-6 |
 | Общее | Alembic + первая миграция; тесты на PostgreSQL; CI; README/диаграммы; `docs/labs/LAB_COMPLIANCE.md`; UML/ArchiMate-файл для лабы 3; бэклог со story points и доска (лаба 4) |
 
 ### Предлагаю явно вынести из MVP (нужно ваше согласие)

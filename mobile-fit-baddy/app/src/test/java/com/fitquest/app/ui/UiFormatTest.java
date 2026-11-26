@@ -98,4 +98,10 @@ public class UiFormatTest {
             }
         }
     }
+
+    @Test
+    public void questCompleteMessageShowsXpOnlyWhenAwarded() {
+        assertEquals("Quest complete! Check your fox — +30 XP", UiFormat.questCompleteMessage(30));
+        assertEquals("Quest complete!", UiFormat.questCompleteMessage(0));
+    }
 }

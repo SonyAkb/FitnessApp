@@ -1,6 +1,11 @@
 """Тесты device/virtual/max30102.py: VirtualMax30102 — инициализация,
 пополнение FIFO, переполнение, разбор FIFO_DATA, пустая очередь, SHDN,
-PART_ID, немоделируемые регистры (задача PI-03).
+RESET, режим SpO2, токи светодиодов, PART_ID, немоделируемые регистры
+(задачи PI-03, PI-11).
+
+Как и настоящий чип, виртуальный после включения питания не измеряет
+(MODE = 000, токи LED = 0), поэтому тесты пополнения сначала включают режим
+SpO2 и светодиоды хелпером `_measuring`.
 
 Важный нюанс реализации (см. комментарий в `max30102.py` у
 `read_byte_data`/`_REG_FIFO_WR_PTR`): чтение `FIFO_WR_PTR` возвращает
@@ -23,11 +28,26 @@ _FIFO_WR_PTR = 0x04
 _OVF_COUNTER = 0x05
 _FIFO_RD_PTR = 0x06
 _FIFO_DATA = 0x07
+_FIFO_CONFIG = 0x08
 _MODE_CONFIG = 0x09
+_SPO2_CONFIG = 0x0A
+_LED1_PA = 0x0C
+_LED2_PA = 0x0D
 _PART_ID = 0xFF
 
 _SHDN_BIT = 0x80
+_RESET_BIT = 0x40
+_MODE_SPO2 = 0x03
 _FIFO_DEPTH = 32
+
+
+def _measuring(source) -> VirtualMax30102:
+    """Чип в режиме SpO2 с включёнными светодиодами — как после Max30102.initialize()."""
+    chip = VirtualMax30102(source)
+    chip.write_byte_data(_LED1_PA, 0x23)
+    chip.write_byte_data(_LED2_PA, 0x23)
+    chip.write_byte_data(_MODE_CONFIG, _MODE_SPO2)
+    return chip
 
 
 def _bytes_for_sample(red: int, ir: int) -> list[int]:
@@ -64,7 +84,7 @@ def test_part_id_is_fixed_regardless_of_state():
 
 
 def test_reading_fifo_wr_ptr_enqueues_one_sample_visible_on_next_read():
-    chip = VirtualMax30102(itertools.repeat((111, 222)))
+    chip = _measuring(itertools.repeat((111, 222)))
 
     chip.read_byte_data(_FIFO_WR_PTR)  # пополнение: один отсчёт поставлен в очередь
 
@@ -77,7 +97,7 @@ def test_reading_fifo_wr_ptr_enqueues_one_sample_visible_on_next_read():
 
 def test_fifo_data_round_trips_one_sample_and_advances_rd_ptr():
     red, ir = 123456, 654321
-    chip = VirtualMax30102(itertools.repeat((ir, red)))
+    chip = _measuring(itertools.repeat((ir, red)))
 
     chip.read_byte_data(_FIFO_WR_PTR)  # пополнение: один отсчёт в очереди
 
@@ -96,7 +116,7 @@ def test_fifo_data_on_empty_queue_returns_zero():
 def test_overflow_after_32_unread_samples_drops_sample_and_increments_ovf_counter():
     # Источник бесконечный и невырожденный -- какие именно (ir, red) идут в
     # очередь, здесь не важно, важно только число пополнений.
-    chip = VirtualMax30102((i, i + 1) for i in itertools.count())
+    chip = _measuring((i, i + 1) for i in itertools.count())
 
     for _ in range(_FIFO_DEPTH):
         chip.read_byte_data(_FIFO_WR_PTR)  # 32 успешных пополнения, FIFO полон
@@ -118,22 +138,22 @@ def test_overflow_after_32_unread_samples_drops_sample_and_increments_ovf_counte
     assert chip.read_byte_data(_FIFO_WR_PTR) == 0
 
 
-def test_ovf_counter_saturates_at_15_and_does_not_wrap():
-    chip = VirtualMax30102((i, i + 1) for i in itertools.count())
+def test_ovf_counter_saturates_at_0x1f_and_does_not_wrap():
+    chip = _measuring((i, i + 1) for i in itertools.count())
 
     for _ in range(_FIFO_DEPTH):
         chip.read_byte_data(_FIFO_WR_PTR)  # заполнить очередь полностью
 
-    for _ in range(50):  # намного больше, чем нужно для насыщения на 15
+    for _ in range(50):  # больше, чем нужно для насыщения на 0x1F (31)
         chip.read_byte_data(_FIFO_WR_PTR)
 
-    assert chip.read_byte_data(_OVF_COUNTER) == 15
+    assert chip.read_byte_data(_OVF_COUNTER) == 0x1F
 
 
 def test_shdn_blocks_fifo_refill():
-    chip = VirtualMax30102(itertools.repeat((1, 2)))
+    chip = _measuring(itertools.repeat((1, 2)))
 
-    chip.write_byte_data(_MODE_CONFIG, _SHDN_BIT)
+    chip.write_byte_data(_MODE_CONFIG, _SHDN_BIT | _MODE_SPO2)
     chip.read_byte_data(_FIFO_WR_PTR)  # попытка пополнения -- должна быть проигнорирована
 
     assert chip.read_byte_data(_FIFO_WR_PTR) == 0
@@ -141,7 +161,7 @@ def test_shdn_blocks_fifo_refill():
 
 
 def test_exhausted_source_leaves_state_unchanged_without_raising():
-    chip = VirtualMax30102(iter([(1, 2)]))
+    chip = _measuring(iter([(1, 2)]))
 
     chip.read_byte_data(_FIFO_WR_PTR)  # consumes the only sample, wr_ptr -> 1
 
@@ -170,7 +190,7 @@ def test_block_read_of_contiguous_fifo_status_registers():
     # на баг, который был найден до ревью: read_i2c_block_data раньше читал
     # один и тот же reg `length` раз вместо `length` последовательных
     # адресов (reg, reg+1, reg+2, ...).
-    chip = VirtualMax30102(itertools.repeat((1, 2)))
+    chip = _measuring(itertools.repeat((1, 2)))
 
     chip.read_byte_data(_FIFO_WR_PTR)  # пополнение: WR_PTR станет 1
 
@@ -199,29 +219,29 @@ def test_direct_write_to_fifo_rd_ptr_sets_value_masked_to_5_bits():
     assert chip.read_byte_data(_FIFO_RD_PTR) == 0x1F
 
 
-def test_direct_write_to_ovf_counter_sets_value_masked_to_4_bits():
+def test_direct_write_to_ovf_counter_sets_value_masked_to_5_bits():
     chip = VirtualMax30102(itertools.repeat((1, 2)))
 
     chip.write_byte_data(_OVF_COUNTER, 0xFF)
 
-    assert chip.read_byte_data(_OVF_COUNTER) == 0x0F
+    assert chip.read_byte_data(_OVF_COUNTER) == 0x1F
 
 
 def test_clearing_shdn_resumes_fifo_refill():
-    chip = VirtualMax30102(itertools.repeat((111, 222)))
+    chip = _measuring(itertools.repeat((111, 222)))
 
-    chip.write_byte_data(_MODE_CONFIG, _SHDN_BIT)
+    chip.write_byte_data(_MODE_CONFIG, _SHDN_BIT | _MODE_SPO2)
     chip.read_byte_data(_FIFO_WR_PTR)  # пополнение заблокировано SHDN=1
     assert chip.read_byte_data(_FIFO_WR_PTR) == 0
 
-    chip.write_byte_data(_MODE_CONFIG, 0x00)  # SHDN снова 0
+    chip.write_byte_data(_MODE_CONFIG, _MODE_SPO2)  # SHDN снова 0, режим SpO2
     chip.read_byte_data(_FIFO_WR_PTR)  # теперь пополнение должно пройти
 
     assert chip.read_byte_data(_FIFO_WR_PTR) == 1
 
 
 def test_shdn_does_not_block_draining_already_buffered_samples():
-    chip = VirtualMax30102(itertools.repeat((111, 222)))
+    chip = _measuring(itertools.repeat((111, 222)))
 
     chip.read_byte_data(_FIFO_WR_PTR)  # один отсчёт уже в очереди, SHDN=0
 
@@ -248,9 +268,97 @@ def test_fifo_data_byte_order_matches_hand_computed_sequence():
     # [0x01, 0x02, 0x03, 0x03, 0x04, 0x05].
     red = 0x010203
     ir = 0x030405
-    chip = VirtualMax30102(itertools.repeat((ir, red)))
+    chip = _measuring(itertools.repeat((ir, red)))
 
     chip.read_byte_data(_FIFO_WR_PTR)  # пополнение: один отсчёт в очереди
     bytes_read = [chip.read_byte_data(_FIFO_DATA) for _ in range(6)]
 
     assert bytes_read == [0x01, 0x02, 0x03, 0x03, 0x04, 0x05]
+
+
+def test_fresh_chip_does_not_measure_until_spo2_mode():
+    # После включения питания MODE = 000 ("Do not use", даташит Table 4).
+    chip = VirtualMax30102(itertools.repeat((111, 222)))
+
+    chip.read_byte_data(_FIFO_WR_PTR)
+
+    assert chip.read_byte_data(_FIFO_WR_PTR) == 0
+    assert chip.read_byte_data(_FIFO_DATA) == 0
+
+
+def test_heart_rate_mode_is_not_modeled_and_produces_nothing():
+    chip = _measuring(itertools.repeat((111, 222)))
+    chip.write_byte_data(_MODE_CONFIG, 0x02)  # HR mode: только красный, 3 байта на отсчёт
+
+    chip.read_byte_data(_FIFO_WR_PTR)
+
+    assert chip.read_byte_data(_FIFO_WR_PTR) == 0
+
+
+def test_channel_with_zero_led_current_reads_zero():
+    chip = VirtualMax30102(itertools.repeat((0x030405, 0x010203)))  # (ir, red)
+    chip.write_byte_data(_LED1_PA, 0x23)  # красный горит, ИК (LED2_PA) — 0
+    chip.write_byte_data(_MODE_CONFIG, _MODE_SPO2)
+
+    chip.read_byte_data(_FIFO_WR_PTR)
+    bytes_read = [chip.read_byte_data(_FIFO_DATA) for _ in range(6)]
+
+    assert bytes_read == [0x01, 0x02, 0x03, 0x00, 0x00, 0x00]
+
+
+def test_config_registers_are_stored():
+    chip = VirtualMax30102(itertools.repeat((1, 2)))
+
+    chip.write_byte_data(_FIFO_CONFIG, 0x10)
+    chip.write_byte_data(_SPO2_CONFIG, 0xA3)  # бит 7 зарезервирован
+    chip.write_byte_data(_LED1_PA, 0x24)
+    chip.write_byte_data(_LED2_PA, 0x25)
+
+    assert chip.read_byte_data(_FIFO_CONFIG) == 0x10
+    assert chip.read_byte_data(_SPO2_CONFIG) == 0x23
+    assert chip.read_byte_data(_LED1_PA) == 0x24
+    assert chip.read_byte_data(_LED2_PA) == 0x25
+
+
+def test_reset_bit_restores_power_on_state_and_self_clears():
+    chip = _measuring((i, i + 1) for i in itertools.count())
+    chip.write_byte_data(_SPO2_CONFIG, 0x23)
+    for _ in range(_FIFO_DEPTH + 3):
+        chip.read_byte_data(_FIFO_WR_PTR)  # FIFO полон, есть переполнение
+
+    chip.write_byte_data(_MODE_CONFIG, _RESET_BIT | _MODE_SPO2)
+
+    assert chip.read_byte_data(_MODE_CONFIG) == 0x00  # RESET сброшен, MODE = 000
+    for reg in (_SPO2_CONFIG, _LED1_PA, _LED2_PA, _OVF_COUNTER, _FIFO_RD_PTR):
+        assert chip.read_byte_data(reg) == 0
+    assert chip.read_byte_data(_FIFO_WR_PTR) == 0
+    assert chip.read_byte_data(_FIFO_DATA) == 0  # FIFO пуст
+
+
+def test_ovf_counter_resets_when_full_sample_is_popped():
+    chip = _measuring((i, i + 1) for i in itertools.count())
+    for _ in range(_FIFO_DEPTH + 3):
+        chip.read_byte_data(_FIFO_WR_PTR)
+    assert chip.read_byte_data(_OVF_COUNTER) > 0
+
+    for _ in range(5):  # неполный отсчёт счётчик не сбрасывает
+        chip.read_byte_data(_FIFO_DATA)
+    assert chip.read_byte_data(_OVF_COUNTER) > 0
+
+    chip.read_byte_data(_FIFO_DATA)  # 6-й байт — отсчёт вычитан полностью
+
+    assert chip.read_byte_data(_OVF_COUNTER) == 0
+
+
+def test_clearing_pointers_empties_fifo():
+    chip = _measuring((i, i + 1) for i in itertools.count())
+    for _ in range(5):
+        chip.read_byte_data(_FIFO_WR_PTR)  # 5 отсчётов в очереди
+
+    for reg in (_FIFO_WR_PTR, _OVF_COUNTER, _FIFO_RD_PTR):
+        chip.write_byte_data(reg, 0x00)
+
+    assert chip.read_i2c_block_data(_FIFO_WR_PTR, 3) == [0, 0, 0]
+    # Блочное чтение выше пополнило FIFO одним отсчётом — он и только он читается.
+    assert [chip.read_byte_data(_FIFO_DATA) for _ in range(6)] != [0] * 6
+    assert chip.read_byte_data(_FIFO_DATA) == 0

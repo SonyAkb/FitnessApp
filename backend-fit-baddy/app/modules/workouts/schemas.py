@@ -1,8 +1,8 @@
 from datetime import datetime
 from enum import Enum
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-
 
 class MuscleGroup(str, Enum):
     chest = "chest"
@@ -87,6 +87,40 @@ class SessionStartIn(BaseModel):
 class SessionCompleteIn(BaseModel):
     duration_seconds: int | None = Field(default=None, ge=0)
 
+class SetLogIn(BaseModel):
+    session_exercise_id: int
+    set_index: int = Field(ge=1)
+    actual_reps: int | None = Field(default=None, ge=0, le=1000)
+    actual_weight_kg: float | None = Field(default=None, ge=0)
+    status: Literal["done", "skipped"]
+
+    @model_validator(mode="after")
+    def reps_required_for_done(self):
+        if self.status == "done" and self.actual_reps is None:
+            raise ValueError("actual_reps is required for done set")
+        return self
+
+
+class ExerciseSetOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    set_index: int
+    target_reps: int
+    target_weight_kg: float | None
+    actual_reps: int | None
+    actual_weight_kg: float | None
+    status: str
+    completed_at: datetime | None
+
+
+class SessionExerciseOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    exercise_id: int | None
+    name: str
+    order_index: int
+    status: str
+    sets: list[ExerciseSetOut] = []
 
 class WorkoutSessionOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -101,6 +135,9 @@ class WorkoutSessionOut(BaseModel):
     duration_seconds: int | None
     xp_awarded: int | None = None
     plan_name: str | None = None
+    sets_done: int = 0
+    volume_kg: float = 0.0
+    exercises: list[SessionExerciseOut] | None = None
 
 
 class WorkoutHistoryOut(BaseModel):

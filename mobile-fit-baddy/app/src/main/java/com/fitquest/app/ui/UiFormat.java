@@ -62,6 +62,10 @@ public final class UiFormat {
         return R.drawable.xp_gain_animation;
     }
 
+    public static String questCompleteMessage(int xp) {
+        return xp > 0 ? "Quest complete! Check your fox — +" + xp + " XP" : "Quest complete!";
+    }
+
     public static boolean isOneShotAnimation(String mood) {
         return "level_up".equalsIgnoreCase(mood);
     }

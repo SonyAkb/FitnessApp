@@ -7,6 +7,8 @@
 
 from __future__ import annotations
 
+import errno
+
 import pytest
 
 from device.bus.fake_smbus import FakeSMBus
@@ -34,11 +36,65 @@ def test_part_id():
     assert drv.part_id() == 0x15
 
 
-def test_initialize_clears_shdn_preserving_other_bits():
+def test_initialize_configures_registers_per_datasheet():
     bus, drv = _make()
-    bus.write_byte_data(ADDR, 0x09, 0x80 | 0x03)
+    bus.write_byte_data(ADDR, 0x09, 0x80)  # чип выключен (SHDN)
     drv.initialize()
-    assert bus.read_byte_data(ADDR, 0x09) == 0x03
+    assert bus.read_byte_data(ADDR, 0x09) == 0x03  # SpO2, SHDN = 0, RESET сброшен
+    assert bus.read_byte_data(ADDR, 0x08) == 0x00  # без усреднения и rollover
+    assert bus.read_byte_data(ADDR, 0x0A) == 0x23  # 4096 нА, 50 Гц, 411 мкс / 18 бит
+    assert bus.read_byte_data(ADDR, 0x0C) == 0x23  # LED1 (красный) ≈ 7 мА
+    assert bus.read_byte_data(ADDR, 0x0D) == 0x23  # LED2 (ИК)
+
+
+def test_initialize_uses_configured_led_current():
+    bus = FakeSMBus()
+    bus.register_device(ADDR, VirtualMax30102(iter(lambda: (1, 2), None)))
+    Max30102(bus, ADDR, led_pa=0x3F).initialize()
+    assert bus.read_byte_data(ADDR, 0x0C) == 0x3F
+    assert bus.read_byte_data(ADDR, 0x0D) == 0x3F
+
+
+@pytest.mark.parametrize("led_pa", [-1, 0x100])
+def test_led_current_out_of_range_rejected(led_pa):
+    with pytest.raises(ValueError):
+        Max30102(FakeSMBus(), ADDR, led_pa=led_pa)
+
+
+def test_fresh_chip_produces_nothing_until_initialize():
+    # После включения питания MODE = 000 и токи LED = 0: чип не измеряет.
+    _, drv = _make([(10, 20), (11, 21)])
+    _produce(drv, 3)
+    assert drv.available_samples() == 0
+
+
+def test_initialize_empties_fifo_and_overflow():
+    _, drv = _make()
+    drv.initialize()
+    _produce(drv, 40)
+    assert drv.overflow_count() > 0
+    drv.initialize()
+    assert drv.overflow_count() == 0
+    assert drv.available_samples() == 0
+
+
+class _StuckResetBus:
+    """Чип, который никогда не сбрасывает бит RESET."""
+
+    def write_byte_data(self, addr: int, reg: int, val: int) -> None:
+        pass
+
+    def read_byte_data(self, addr: int, reg: int) -> int:
+        return 0x40
+
+    def read_i2c_block_data(self, addr: int, reg: int, length: int) -> list[int]:
+        return [0] * length
+
+
+def test_initialize_times_out_if_reset_never_clears():
+    with pytest.raises(OSError) as exc:
+        Max30102(_StuckResetBus(), ADDR).initialize()
+    assert exc.value.errno == errno.ETIMEDOUT
 
 
 def test_shutdown_chip_produces_nothing_until_initialize():

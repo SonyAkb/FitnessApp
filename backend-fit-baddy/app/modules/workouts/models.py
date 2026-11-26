@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from app.core.clock import utc_now
@@ -67,3 +67,47 @@ class WorkoutSession(Base):
     xp_awarded = Column(Integer, nullable=True)
 
     plan = relationship("WorkoutPlan", back_populates="sessions")
+    exercises = relationship(
+        "WorkoutSessionExercise",
+        back_populates="session",
+        cascade="all, delete-orphan",
+        order_by="WorkoutSessionExercise.order_index, WorkoutSessionExercise.id",
+    )
+
+
+class WorkoutSessionExercise(Base):
+    __tablename__ = "workout_session_exercises"
+
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(Integer, ForeignKey("workout_sessions.id"), nullable=False, index=True)
+    exercise_id = Column(Integer, ForeignKey("exercises.id", ondelete="SET NULL"), nullable=True)
+    name = Column(String, nullable=False)
+    order_index = Column(Integer, nullable=False, default=0)
+    status = Column(String, nullable=False, default="pending")  # pending | done | skipped
+
+    session = relationship("WorkoutSession", back_populates="exercises")
+    sets = relationship(
+        "ExerciseSet", back_populates="session_exercise",
+        cascade="all, delete-orphan", order_by="ExerciseSet.set_index",
+    )
+
+
+class ExerciseSet(Base):
+    __tablename__ = "exercise_sets"
+    __table_args__ = (
+        UniqueConstraint("session_exercise_id", "set_index", name="uq_exercise_set_index"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    session_exercise_id = Column(
+        Integer, ForeignKey("workout_session_exercises.id"), nullable=False, index=True
+    )
+    set_index = Column(Integer, nullable=False)
+    target_reps = Column(Integer, nullable=False)
+    target_weight_kg = Column(Float, nullable=True)
+    actual_reps = Column(Integer, nullable=True)
+    actual_weight_kg = Column(Float, nullable=True)
+    status = Column(String, nullable=False, default="pending")  # pending | done | skipped
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+
+    session_exercise = relationship("WorkoutSessionExercise", back_populates="sets")

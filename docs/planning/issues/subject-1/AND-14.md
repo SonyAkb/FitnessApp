@@ -4,7 +4,7 @@ title: "[Питомец] Android: анимации и реплики питом�
 assignee: SonyAkb
 labels: [subject-1, module:pet, type:feature, sprint-6]
 milestone: "Sprint 6"
-status: todo
+status: done
 story_points: 2
 related_us: [US-D1, US-D2]
 ---
@@ -15,10 +15,10 @@ related_us: [US-D1, US-D2]
 - `UiFormat.foxAnimationForMood`, ресурсы в `res/drawable-nodpi/`.
 
 ## Критерии готовности
-- [ ] `UiFormatTest` покрывает новые настроения
+- [x] `UiFormatTest` покрывает новые настроения
 
 ## Зависимости
 - [PET-06](PET-06.md) — [Питомец] Настроение по дням без тренировки, сон и бонус возвращения
 
 ## Вопросы
-Готовы ли кадры для sleeping и sad?
+Готовы ли кадры для sleeping и sad? — Да, кадры в `res/drawable-nodpi/` (`fox_sleep_*`, `fox_sad_*`).

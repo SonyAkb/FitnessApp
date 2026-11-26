@@ -57,7 +57,7 @@ class Sampler:
         self._clock = clock
         self._utc_now = utc_now
         self._mpu = Mpu6050(bus, config.mpu6050_addr)
-        self._max = Max30102(bus, config.max30102_addr)
+        self._max = Max30102(bus, config.max30102_addr, led_pa=config.max30102_led_pa)
         self._steps = StepCounter.from_config(config, clock)
         self._hr = HeartRateEstimator.from_config(config, clock)
         self._history: deque[Reading] = deque(maxlen=config.history_max_points)

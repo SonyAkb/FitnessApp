@@ -40,7 +40,7 @@
 - дашборд прогресса и календарь активности;
 - уведомления: напоминания и сообщения от питомца;
 - подписка Free / Pro через тестовый (sandbox) платёжный провайдер;
-- ИИ-рекомендация следующей тренировки (модель обучается в Google Colab);
+- ИИ-рекомендация следующей тренировки (готовая LLM + RAG по проверенным источникам, сервис в Google Colab, [docs/ai](docs/ai/README.md));
 - пульс и шаги: в тестовом режиме — симулятор, в боевом — Raspberry Pi с датчиками MPU6050 и MAX30102.
 
 Что из этого уже работает, а что в плане, — в разделе [Состояние проекта](#состояние-проекта).
@@ -229,5 +229,5 @@ flowchart LR
 | Backend | Python 3.11, FastAPI, SQLAlchemy 2, Pydantic 2, PostgreSQL 16, pytest |
 | Android | Java 17, Android SDK 34 (min 26), Retrofit, OkHttp WebSocket |
 | Raspberry Pi | Python 3.11, FastAPI, smbus2, gpiozero; эмуляция — FakeSMBus и виртуальные чипы |
-| ИИ | правила на сервере; модель обучается в Google Colab |
+| ИИ | правила на сервере; LLM (Qwen3 8B, Ollama) + RAG в Google Colab |
 | Инфраструктура | Docker Compose, GitHub Actions |

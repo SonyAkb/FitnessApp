@@ -180,7 +180,7 @@
 | [AND-14](issues/subject-1/AND-14.md) | [Питомец] Android: анимации и реплики питомца по настроению | @SonyAkb | 2 | ⬜ |
 | [AND-16](issues/subject-1/AND-16.md) | [Дашборд] Android: графики на экране прогресса | @Ananasic07 | 3 | ⬜ |
 | [AND-17](issues/subject-1/AND-17.md) | [Уведомления] Android: локальные напоминания о тренировке | @Ananasic07 | 3 | ⬜ |
-| [AI-03](issues/subject-1/AI-03.md) | [ИИ] Модель из Google Colab за интерфейсом RecommendationService | @MouseViolin | 5 | ⬜ |
+| [AI-03](issues/subject-1/AI-03.md) | [ИИ] LLM + RAG в Google Colab за интерфейсом RecommendationService | @MouseViolin | 5 | ⬜ |
 | [PI-03](issues/subject-1/PI-03.md) | [Pi] Виртуальный MAX30102: FIFO, указатели, переполнение | @MouseViolin | 5 | ⬜ |
 | [PI-05](issues/subject-1/PI-05.md) | [Pi] Драйверы Mpu6050 и Max30102 + тест переносимости | @MouseViolin | 3 | ⬜ |
 | [PI-06](issues/subject-1/PI-06.md) | [Pi] Подсчёт шагов на потоке отсчётов | @MouseViolin | 3 | ⬜ |

@@ -6,6 +6,7 @@ import android.util.Log;
 
 import androidx.security.crypto.EncryptedSharedPreferences;
 import androidx.security.crypto.MasterKeys;
+import com.fitquest.app.api.dto.SessionDto;
 
 /**
  * Stores JWT and a few session flags. Prefers EncryptedSharedPreferences
@@ -20,6 +21,7 @@ public class SessionStore {
     private static final String KEY_SESSION_ID = "active_session_id";
     private static final String KEY_SESSION_STARTED = "active_session_started";
     private static final String KEY_PLAN_ID = "active_plan_id";
+    private static final String KEY_EXERCISES = "active_exercises";
     private static final String KEY_DEVICE_ID = "device_id";
     private static final String KEY_DISPLAY_NAME = "display_name";
     /** AND-14: «+XP» после тренировки — одноразовый флаг, который показывает HomeFragment. */
@@ -79,6 +81,7 @@ public class SessionStore {
                 .remove(KEY_SESSION_ID)
                 .remove(KEY_SESSION_STARTED)
                 .remove(KEY_PLAN_ID)
+                .remove(KEY_EXERCISES)
                 .apply();
     }
 
@@ -95,6 +98,7 @@ public class SessionStore {
                 .remove(KEY_SESSION_ID)
                 .remove(KEY_SESSION_STARTED)
                 .remove(KEY_PLAN_ID)
+                .remove(KEY_EXERCISES)
                 .apply();
     }
 
@@ -104,6 +108,15 @@ public class SessionStore {
 
     public int getActivePlanId() {
         return prefs.getInt(KEY_PLAN_ID, -1);
+    }
+
+    /** JSON-список упражнений активной сессии (SessionExerciseDto), чтобы открыть экран тренировки. */
+    public void setActiveExercisesJson(String json) {
+        prefs.edit().putString(KEY_EXERCISES, json).apply();
+    }
+
+    public String getActiveExercisesJson() {
+        return prefs.getString(KEY_EXERCISES, null);
     }
 
     public long getActiveSessionStartedAt() {
@@ -128,6 +141,15 @@ public class SessionStore {
 
     public void markXpPending(int xp) {
         prefs.edit().putInt(KEY_XP_PENDING, Math.max(0, xp)).apply();
+    }
+
+    /** AND-14: запоминает XP из ответа completeSession для вспышки «+XP» на главном экране. */
+    public int rememberWorkoutXp(SessionDto session) {
+        int xp = session == null || session.xp_awarded == null ? 0 : session.xp_awarded;
+        if (xp > 0) {
+            markXpPending(xp);
+        }
+        return xp;
     }
 
     public int peekXpPending() {

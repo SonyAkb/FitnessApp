@@ -175,7 +175,9 @@ def main(
         active_clock = clock or MonotonicClock()
         active_bus = bus if bus is not None else create_bus(cfg)
         mpu = Mpu6050(active_bus, cfg.mpu6050_addr)
-        max_sensor = Max30102(active_bus, cfg.max30102_addr)
+        max_sensor = Max30102(
+            active_bus, cfg.max30102_addr, led_pa=cfg.max30102_led_pa
+        )
         # Те же вызовы подготовки, что и в сервисе (Sampler).
         mpu.wake()
         max_sensor.initialize()

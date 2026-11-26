@@ -16,6 +16,12 @@ class Settings(BaseSettings):
     TELEMETRY_WS_INTERVAL_SECONDS: float = 5.0
     MOCK_WEBHOOK_SECRET: str = "dev-mock-webhook-secret"
 
+    # ИИ: rules — правила; rag — LLM + RAG-сервис в Colab, при недоступности — правила (docs/ai/README.md)
+    AI_ENGINE: str = "rules"
+    AI_RAG_URL: str = ""
+    AI_RAG_TOKEN: str = ""
+    AI_RAG_TIMEOUT_S: float = 25.0
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 
