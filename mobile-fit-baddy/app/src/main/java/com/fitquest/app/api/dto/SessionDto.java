@@ -12,6 +12,7 @@ public class SessionDto {
     public String completed_at;
     public String title;
     public String plan_name;
+    public Integer xp_awarded;
     public List<SessionExerciseDto> exercises;
 
     public List<SessionExerciseDto> safeExercises() {

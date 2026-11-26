@@ -34,12 +34,39 @@
                     android:textColor="@color/cream"
                     android:textSize="22sp" />
 
-                <ImageView
-                    android:id="@+id/fox"
+                <FrameLayout
                     android:layout_width="200dp"
-                    android:layout_height="200dp"
-                    android:contentDescription="Fox mascot"
-                    android:src="@drawable/fox_idle_animation" />
+                    android:layout_height="220dp">
+
+                    <ImageView
+                        android:id="@+id/fox"
+                        android:layout_width="match_parent"
+                        android:layout_height="200dp"
+                        android:layout_gravity="bottom"
+                        android:contentDescription="Fox mascot"
+                        android:src="@drawable/fox_idle_animation" />
+
+                    <!-- AND-14: вспышка «+XP» после тренировки -->
+                    <ImageView
+                        android:id="@+id/fox_xp_burst"
+                        android:layout_width="120dp"
+                        android:layout_height="120dp"
+                        android:layout_gravity="top|center_horizontal"
+                        android:contentDescription="+XP"
+                        android:src="@drawable/xp_gain_animation"
+                        android:visibility="gone" />
+
+                    <TextView
+                        android:id="@+id/fox_xp_text"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_gravity="top|end"
+                        android:fontFamily="sans-serif-black"
+                        android:text="+0 XP"
+                        android:textColor="@color/ember"
+                        android:textSize="18sp"
+                        android:visibility="gone" />
+                </FrameLayout>
 
                 <TextView
                     android:id="@+id/mood"

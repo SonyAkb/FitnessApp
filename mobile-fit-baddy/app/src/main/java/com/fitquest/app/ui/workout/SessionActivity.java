@@ -30,6 +30,7 @@ import com.fitquest.app.workout.SessionProgress;
 import com.fitquest.app.workout.SessionProgress.ExerciseEntry;
 import com.fitquest.app.workout.SessionProgress.SetEntry;
 import com.fitquest.app.workout.SessionProgress.SetStatus;
+import com.fitquest.app.ui.UiFormat;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 
@@ -213,7 +214,7 @@ public class SessionActivity extends AppCompatActivity {
                 ApiClient.get().completeSession(id, new CompleteSessionRequest(store.elapsedSeconds())),
                 session -> {
                     store.clearActiveSession();
-                    toast("Quest complete! Check your fox — XP is incoming.");
+                    toast(UiFormat.questCompleteMessage(store.rememberWorkoutXp(session)));
                     finish();
                 },
                 err -> {

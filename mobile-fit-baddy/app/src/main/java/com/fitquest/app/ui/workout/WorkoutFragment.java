@@ -39,6 +39,7 @@ import com.fitquest.app.databinding.FragmentWorkoutBinding;
 import com.fitquest.app.databinding.ItemPlanBinding;
 import com.fitquest.app.databinding.ItemSessionBinding;
 import com.fitquest.app.workout.RestTimer;
+import com.fitquest.app.ui.UiFormat;
 import com.google.gson.Gson;
 
 import java.time.OffsetDateTime;
@@ -308,7 +309,7 @@ public class WorkoutFragment extends Fragment {
         ApiCalls.enqueue(ApiClient.get().completeSession(id, new CompleteSessionRequest(duration)), session -> {
             setBusy(false);
             store.clearActiveSession();
-            toast("Quest complete! Check your fox — XP is incoming.");
+            toast(UiFormat.questCompleteMessage(store.rememberWorkoutXp(session)));
             refreshActiveBanner();
             load();
         }, err -> {

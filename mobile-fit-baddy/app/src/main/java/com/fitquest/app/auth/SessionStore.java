@@ -6,6 +6,7 @@ import android.util.Log;
 
 import androidx.security.crypto.EncryptedSharedPreferences;
 import androidx.security.crypto.MasterKeys;
+import com.fitquest.app.api.dto.SessionDto;
 
 /**
  * Stores JWT and a few session flags. Prefers EncryptedSharedPreferences
@@ -23,6 +24,8 @@ public class SessionStore {
     private static final String KEY_EXERCISES = "active_exercises";
     private static final String KEY_DEVICE_ID = "device_id";
     private static final String KEY_DISPLAY_NAME = "display_name";
+    /** AND-14: «+XP» после тренировки — одноразовый флаг, который показывает HomeFragment. */
+    private static final String KEY_XP_PENDING = "pending_xp_amount";
 
     private final SharedPreferences prefs;
 
@@ -134,5 +137,30 @@ public class SessionStore {
 
     public String getDeviceId() {
         return prefs.getString(KEY_DEVICE_ID, null);
+    }
+
+    public void markXpPending(int xp) {
+        prefs.edit().putInt(KEY_XP_PENDING, Math.max(0, xp)).apply();
+    }
+
+    /** AND-14: запоминает XP из ответа completeSession для вспышки «+XP» на главном экране. */
+    public int rememberWorkoutXp(SessionDto session) {
+        int xp = session == null || session.xp_awarded == null ? 0 : session.xp_awarded;
+        if (xp > 0) {
+            markXpPending(xp);
+        }
+        return xp;
+    }
+
+    public int peekXpPending() {
+        return prefs.getInt(KEY_XP_PENDING, 0);
+    }
+
+    public int consumeXpPending() {
+        int xp = peekXpPending();
+        if (xp > 0) {
+            prefs.edit().remove(KEY_XP_PENDING).apply();
+        }
+        return xp;
     }
 }
